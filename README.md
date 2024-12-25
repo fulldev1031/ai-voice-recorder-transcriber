@@ -1,6 +1,6 @@
 # ai-voice-recorder-transcriber
-This project is an interactive desktop application that allows users to record audio in real-time, save the recordings, and transcribe the audio to text using the Whisper AI model. The user-friendly interface is built with Tkinter, making it easy to start and stop recordings and generate transcriptions with just a few clicks.
 
+This project is an interactive desktop application that allows users to record audio in real-time, save the recordings, and transcribe the audio to text using the Whisper AI model. The user-friendly interface is built with Tkinter, making it easy to start and stop recordings and generate transcriptions with just a few clicks.
 
 Features:
 
@@ -39,3 +39,5 @@ Technical Implementation:
 The application uses PyAudio for audio capture and handling, ensuring seamless recording functionality.
 Whisper AI, a state-of-the-art speech recognition model, is used for transcription, providing accurate and reliable text conversion.
 Tkinter is used to create a user-friendly graphical interface, making the application accessible to users with no technical background.
+
+This Python-based GUI application allows you to record audio, save it as a `.wav` file, and transcribe it into text using OpenAI's Whisper model. Built with `tkinter`, it features buttons to start/stop recording and transcribe audio, saving the recording as `output.wav` and the transcription as `transcription.txt`. To run, install Python 3.8+ and required packages (`pyaudio` and `whisper`) using `pip install pyaudio whisper`. If `pyaudio` installation fails, download a pre-built wheel from [https://www.lfd.uci.edu/~gohlke/pythonlibs/#pyaudio](https://www.lfd.uci.edu/~gohlke/pythonlibs/#pyaudio). Whisper downloads its models on the first run; ensure an active internet connection. Customize the Whisper model by modifying `whisper.load_model("small")` in the code (options: tiny, base, small, medium, large). For more on Whisper, visit [https://github.com/openai/whisper](https://github.com/openai/whisper). Run the application with `python audio_recorder.py`, and use the GUI to record and transcribe audio seamlessly.
