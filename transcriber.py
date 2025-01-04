@@ -1,4 +1,9 @@
 import whisper
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 class AudioTranscriber:
@@ -9,4 +14,4 @@ class AudioTranscriber:
         result = self.model.transcribe(filepath)
         with open("transcription.txt", "w") as f:
             f.write(result["text"])
-        print("Transcription saved to transcription.txt")
+        logging.info("Transcription saved to transcription.txt")
