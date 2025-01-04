@@ -1,6 +1,11 @@
 import pyaudio
 import wave
 import threading
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 class AudioRecorder:
@@ -22,6 +27,7 @@ class AudioRecorder:
         self.recording = True
         self.thread = threading.Thread(target=self.record)
         self.thread.start()
+        logging.info("Recording started")
 
     def record(self):
         while self.recording:
@@ -34,6 +40,7 @@ class AudioRecorder:
         self.stream.stop_stream()
         self.stream.close()
         self.save_recording()
+        logging.info("Recording stopped and saved to output.wav")
 
     def save_recording(self):
         self.filepath = "output.wav"

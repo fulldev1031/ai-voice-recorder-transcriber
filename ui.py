@@ -1,6 +1,11 @@
 import tkinter as tk
 from recorder import AudioRecorder
 from transcriber import AudioTranscriber
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 def start_recording():
@@ -8,6 +13,7 @@ def start_recording():
     start_button.config(state=tk.DISABLED)
     stop_button.config(state=tk.NORMAL)
     transcribe_button.config(state=tk.DISABLED)
+    logging.info("Start recording button clicked")
 
 
 def stop_recording():
@@ -15,10 +21,12 @@ def stop_recording():
     start_button.config(state=tk.NORMAL)
     stop_button.config(state=tk.DISABLED)
     transcribe_button.config(state=tk.NORMAL)
+    logging.info("Stop recording button clicked")
 
 
 def transcribe_audio():
     transcriber.transcribe_audio(recorder.filepath)
+    logging.info("Transcribe button clicked")
 
 
 recorder = AudioRecorder()
