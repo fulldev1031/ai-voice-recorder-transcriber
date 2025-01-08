@@ -2,31 +2,34 @@ import tkinter as tk
 from recorder import AudioRecorder
 from transcriber import AudioTranscriber
 import logging
+import warnings
+
+warnings.filterwarnings("ignore", message = "FP16 is not supported on CPU; using FP32 instead")
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
 
-def start_recording():
+def start_recording(self, event=None):
     recorder.start_recording()
     start_button.config(state=tk.DISABLED)
     stop_button.config(state=tk.NORMAL)
     transcribe_button.config(state=tk.DISABLED)
-    logging.info("Start recording button clicked")
+    logging.info("Start recording button clicked (Hotkey: 's')")
 
 
-def stop_recording():
+def stop_recording(self, event=None):
     recorder.stop_recording()
     start_button.config(state=tk.NORMAL)
     stop_button.config(state=tk.DISABLED)
     transcribe_button.config(state=tk.NORMAL)
-    logging.info("Stop recording button clicked")
+    logging.info("Stop recording button clicked (Hotkey: 'x')")
 
 
-def transcribe_audio():
+def transcribe_audio(self, event=None):
     transcriber.transcribe_audio(recorder.filepath)
-    logging.info("Transcribe button clicked")
+    logging.info("Transcribe button clicked (Hotkey: 't')")
 
 
 recorder = AudioRecorder()
@@ -34,8 +37,12 @@ transcriber = AudioTranscriber()
 
 root = tk.Tk()
 root.title("Audio Recorder")
-root.geometry("300x300")
+root.geometry("300x400")
 root.configure(bg="#2b2b2b")
+
+root.bind('<s>', start_recording)
+root.bind('<x>', stop_recording)
+root.bind('<t>', transcribe_audio)
 
 button_style = {
     "font": ("Helvetica", 12, "bold"),
@@ -67,5 +74,14 @@ transcribe_button = tk.Button(
     root, text="Transcribe", command=transcribe_audio, state=tk.DISABLED, **button_style
 )
 transcribe_button.pack(pady=20)
+
+hotkey_label = tk.Label(
+    root,
+    text="Hotkeys:\nS - Start\nX - Stop\nT - Transcribe",
+    bg="#2b2b2b",
+    fg="white",
+    font=("Helvetica", 10)
+)
+hotkey_label.pack(pady=10)
 
 root.mainloop()
