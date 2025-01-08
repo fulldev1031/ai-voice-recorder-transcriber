@@ -14,7 +14,6 @@ class AudioRecorder:
         self.stream = None
         self.frames = []
         self.recording = False
-        # self.filepath = "output.wav"
 
     def start_recording(self):
         self.frames = []
