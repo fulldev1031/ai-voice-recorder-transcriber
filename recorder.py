@@ -14,6 +14,10 @@ class AudioRecorder:
         self.stream = None
         self.frames = []
         self.recording = False
+    
+    def set_save_directory(self, directory):
+        self.save_directory = directory
+        logging.info(f"Save directory set to: {self.save_directory}")
 
     def start_recording(self):
         self.frames = []
