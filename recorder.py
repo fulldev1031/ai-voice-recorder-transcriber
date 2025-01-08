@@ -14,8 +14,9 @@ class AudioRecorder:
         self.stream = None
         self.frames = []
         self.recording = False
+        self.filepath = "output.wav"
 
-    def start_recording(self):
+    def start_recording(self, event = None):
         self.frames = []
         self.stream = self.audio.open(
             format=pyaudio.paInt16,
@@ -34,7 +35,7 @@ class AudioRecorder:
             data = self.stream.read(1024)
             self.frames.append(data)
 
-    def stop_recording(self):
+    def stop_recording(self, event = None):
         self.recording = False
         self.thread.join()
         self.stream.stop_stream()
