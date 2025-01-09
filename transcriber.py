@@ -18,7 +18,7 @@ class AudioTranscriber:
         else:
             save_path = "transcription.txt"
 
-        with open(save_path, "w") as f:
+        with open(save_path, "w", encoding="utf-8") as f:
             f.write(result["text"])
         
         logging.info(f"Transcription saved to {save_path}")
