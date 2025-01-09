@@ -17,7 +17,7 @@ logging.basicConfig(
 save_directory = os.getcwd()
 logging.info(f"Default save directory set to: {save_directory}")
 
-def browse_directory():
+def browse_directory(event=None):
     global save_directory
     directory = filedialog.askdirectory(title="Select Directory")
     if directory:
@@ -55,10 +55,11 @@ recorder = AudioRecorder()
 transcriber = AudioTranscriber()
 root = tk.Tk()
 root.title("Audio Recorder")
-root.geometry("300x450")  # Increased height to fit hotkey label
+root.geometry("300x500")  # Increased height to fit hotkey label
 root.configure(bg="#2b2b2b")
 
 # Bind hotkeys
+root.bind("<d>", browse_directory)
 root.bind("<s>", start_recording)
 root.bind("<x>", stop_recording)
 root.bind("<t>", transcribe_audio)
@@ -98,7 +99,7 @@ transcribe_button.pack(pady=20)
 # Add hotkey label
 hotkey_label = tk.Label(
     root,
-    text="Hotkeys:\nS - Start Recording\nX - Stop Recording\nT - Transcribe",
+    text="Hotkeys:\nD - Select Directory\nS - Start Recording\nX - Stop Recording\nT - Transcribe",
     bg="#2b2b2b",
     fg="white",
     font=("Helvetica", 10),
