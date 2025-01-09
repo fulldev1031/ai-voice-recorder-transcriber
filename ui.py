@@ -3,11 +3,15 @@ from tkinter import filedialog
 from recorder import AudioRecorder
 from transcriber import AudioTranscriber
 import logging
+import os
+
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-save_directory = ""  
+# Set default save directory to the current working directory
+save_directory = os.getcwd()
+logging.info(f"Default save directory set to: {save_directory}")
 
 def browse_directory():
     global save_directory
@@ -39,7 +43,7 @@ def transcribe_audio():
     if not recorder.filepath:
         logging.warning("No audio file available for transcription.")
         return
-    transcriber.transcribe_audio(recorder.filepath, save_directory)  
+    transcriber.transcribe_audio(recorder.filepath, save_directory)
     logging.info("Transcribe button clicked")
 
 recorder = AudioRecorder()

@@ -2,6 +2,7 @@ import pyaudio
 import wave
 import threading
 import logging
+import os
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -47,10 +48,16 @@ class AudioRecorder:
         logging.info("Recording stopped and saved to output.wav")
 
     def save_recording(self):
-        self.filepath = "output.wav"
+        # Ensure save_directory is set, otherwise default to the current directory
+        if hasattr(self, "save_directory"):
+            self.filepath = os.path.join(self.save_directory, "output.wav")
+        else:
+            self.filepath = "output.wav"
+
         wf = wave.open(self.filepath, "wb")
         wf.setnchannels(1)
         wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
         wf.setframerate(44100)
         wf.writeframes(b"".join(self.frames))
         wf.close()
+        logging.info(f"Recording saved to {self.filepath}")
