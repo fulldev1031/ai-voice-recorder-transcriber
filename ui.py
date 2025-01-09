@@ -3,7 +3,11 @@ from tkinter import filedialog
 from recorder import AudioRecorder
 from transcriber import AudioTranscriber
 import logging
+import warnings
 import os
+
+# Suppress FP16 warning
+warnings.filterwarnings("ignore", message="FP16 is not supported on CPU; using FP32 instead")
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -20,26 +24,27 @@ def browse_directory():
         save_directory = directory
         logging.info(f"Save directory selected: {save_directory}")
     else:
-        logging.info("No directory selected")
+        logging.info(f"No directory selected. Using default: {save_directory}")
 
-def start_recording():
+def start_recording(event=None):
     if not save_directory:
         logging.warning("Save directory is not set. Please select a directory first.")
-        return  
+        return
     recorder.set_save_directory(save_directory)
     recorder.start_recording()
     start_button.config(state=tk.DISABLED)
     stop_button.config(state=tk.NORMAL)
     transcribe_button.config(state=tk.DISABLED)
     logging.info("Start recording button clicked")
-def stop_recording():
+
+def stop_recording(event=None):
     recorder.stop_recording()
     start_button.config(state=tk.NORMAL)
     stop_button.config(state=tk.DISABLED)
     transcribe_button.config(state=tk.NORMAL)
     logging.info("Stop recording button clicked")
 
-def transcribe_audio():
+def transcribe_audio(event=None):
     if not recorder.filepath:
         logging.warning("No audio file available for transcription.")
         return
@@ -50,8 +55,14 @@ recorder = AudioRecorder()
 transcriber = AudioTranscriber()
 root = tk.Tk()
 root.title("Audio Recorder")
-root.geometry("300x400")  # i increased height to fit new browse button
+root.geometry("300x450")  # Increased height to fit hotkey label
 root.configure(bg="#2b2b2b")
+
+# Bind hotkeys
+root.bind("<s>", start_recording)
+root.bind("<x>", stop_recording)
+root.bind("<t>", transcribe_audio)
+
 button_style = {
     "font": ("Helvetica", 12, "bold"),
     "bg": "#4caf50",
@@ -83,5 +94,15 @@ transcribe_button = tk.Button(
     root, text="Transcribe", command=transcribe_audio, state=tk.DISABLED, **button_style
 )
 transcribe_button.pack(pady=20)
-root.mainloop()
 
+# Add hotkey label
+hotkey_label = tk.Label(
+    root,
+    text="Hotkeys:\nS - Start Recording\nX - Stop Recording\nT - Transcribe",
+    bg="#2b2b2b",
+    fg="white",
+    font=("Helvetica", 10),
+)
+hotkey_label.pack(pady=10)
+
+root.mainloop()
