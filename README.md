@@ -67,10 +67,6 @@ Thank you for contributing! 🎉
 
 
 ## ⭐️ Acknowledgements
-A very big thanks to all the contributors for helping this project grow!
+A very big thanks to all the contributors for helping this project grow. Your efforts are greatly appreciated!
 
-<a href="https://github.com/fulldev1031/ai-voice-recorder-transcriber/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=fulldev1031/ai-voice-recorder-transcriber" />
-</a>
-<!-- [![Contributors](https://contrib.rocks/preview?repo=fulldev1031%2Fai-voice-recorder-transcriber)](https://github.com/fulldev1031/ai-voice-recorder-transcriber/graphs/contributors) -->
 
