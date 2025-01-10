@@ -13,6 +13,19 @@ logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+# Custom log handler to display logs in the UI
+class TextBoxLogHandler(logging.Handler):
+    def __init__(self, text_widget):
+        super().__init__()
+        self.text_widget = text_widget
+
+    def emit(self, record):
+        msg = self.format(record)
+        self.text_widget.config(state=tk.NORMAL)
+        self.text_widget.insert(tk.END, msg + '\n')
+        self.text_widget.config(state=tk.DISABLED)
+        self.text_widget.see(tk.END)  # Auto-scroll to the latest log
+
 # Set default save directory to the current working directory
 save_directory = os.getcwd()
 logging.info(f"Default save directory set to: {save_directory}")
@@ -59,7 +72,7 @@ recorder = AudioRecorder()
 transcriber = AudioTranscriber()
 root = tk.Tk()
 root.title("Audio Recorder")
-root.geometry("400x500")
+root.geometry("500x900")
 root.configure(bg="#2b2b2b")
 
 # Bind hotkeys
@@ -67,6 +80,16 @@ root.bind("<d>", browse_directory)
 root.bind("<s>", start_recording)
 root.bind("<x>", stop_recording)
 root.bind("<t>", transcribe_audio)
+
+# Create log box
+log_box = tk.Text(root, height=10, width=60, wrap=tk.WORD, state=tk.DISABLED, bg="#333333", fg="white", font=("Helvetica", 10))
+log_box.pack(pady=10)
+
+# Configure logging to display in the log box
+log_handler = TextBoxLogHandler(log_box)
+log_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+logging.getLogger().addHandler(log_handler)
+logging.getLogger().setLevel(logging.DEBUG)
 
 button_style = {
     "font": ("Helvetica", 12, "bold"),
