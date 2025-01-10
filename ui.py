@@ -35,6 +35,7 @@ def start_recording(event=None):
     start_button.config(state=tk.DISABLED)
     stop_button.config(state=tk.NORMAL)
     transcribe_button.config(state=tk.DISABLED)
+    transcription_box.delete(1.0, tk.END)  # Clear previous transcription
     logging.info("Start recording button clicked")
 
 def stop_recording(event=None):
@@ -47,15 +48,18 @@ def stop_recording(event=None):
 def transcribe_audio(event=None):
     if not recorder.filepath:
         logging.warning("No audio file available for transcription.")
+        transcription_box.insert(tk.END, "No audio file available for transcription.\n")
         return
-    transcriber.transcribe_audio(recorder.filepath, save_directory)
-    logging.info("Transcribe button clicked")
+    transcription = transcriber.transcribe_audio(recorder.filepath, save_directory)
+    transcription_box.delete(1.0, tk.END)
+    transcription_box.insert(tk.END, transcription)
+    logging.info("Transcription displayed in the UI.")
 
 recorder = AudioRecorder()
 transcriber = AudioTranscriber()
 root = tk.Tk()
 root.title("Audio Recorder")
-root.geometry("300x500")  # Increased height to fit hotkey label
+root.geometry("400x500")
 root.configure(bg="#2b2b2b")
 
 # Bind hotkeys
@@ -78,11 +82,11 @@ button_style = {
 browse_button = tk.Button(
     root, text="Browse Directory", command=browse_directory, **button_style
 )
-browse_button.pack(pady=20)
+browse_button.pack(pady=10)
 start_button = tk.Button(
     root, text="Start Recording", command=start_recording, **button_style
 )
-start_button.pack(pady=20)
+start_button.pack(pady=10)
 stop_button = tk.Button(
     root,
     text="Stop Recording",
@@ -90,11 +94,15 @@ stop_button = tk.Button(
     state=tk.DISABLED,
     **button_style
 )
-stop_button.pack(pady=20)
+stop_button.pack(pady=10)
 transcribe_button = tk.Button(
     root, text="Transcribe", command=transcribe_audio, state=tk.DISABLED, **button_style
 )
-transcribe_button.pack(pady=20)
+transcribe_button.pack(pady=10)
+
+# Transcription Box
+transcription_box = tk.Text(root, height=15, width=50, wrap=tk.WORD)
+transcription_box.pack(pady=10)
 
 # Add hotkey label
 hotkey_label = tk.Label(

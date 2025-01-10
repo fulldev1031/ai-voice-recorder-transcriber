@@ -1,7 +1,9 @@
 import tkinter as tk
+from tkinter import ttk
 import pyaudio
 import threading
 import time
+import wave
 import whisper
 
 # Initialize Whisper model with error handling
@@ -16,16 +18,20 @@ rate = 16000
 chunk_size = 1024
 channels = 1
 frames = []
+recording = False
+audio_file = "recorded_audio.wav"
+transcription_file = "transcription.txt"
 
 # Function to start recording
 def start_recording():
+    global recording, frames
+    frames = []
+    recording = True
+
     progress_bar['value'] = 0
-    progress_bar['maximum'] = 100
+    duration = int(duration_spinbox.get())
 
-    # Get recording duration from spinbox
-    duration = int(duration_spinbox.get())  # Get the value from the spinbox
-
-    # Create PyAudio object with error handling
+    # Create PyAudio object
     try:
         p = pyaudio.PyAudio()
         stream = p.open(format=pyaudio.paInt16, channels=channels,
@@ -34,33 +40,41 @@ def start_recording():
         print(f"Error initializing microphone: {e}")
         return
 
-    # Timer to stop recording after the specified duration
+    # Timer to stop recording after duration
     def stop_timer():
-        time.sleep(duration)  # Stop after the user-defined duration
+        time.sleep(duration)
         stop_recording()
 
     threading.Thread(target=stop_timer, daemon=True).start()
 
-    # Start recording
+    # Start recording audio
     def record_audio():
         nonlocal stream
         while recording:
             try:
                 data = stream.read(chunk_size)
                 frames.append(data)
-                # Update progress bar based on the length of recorded frames
-                progress_bar['value'] = min(100, len(frames) / (rate / chunk_size) * 100)
-                root.update_idletasks()
-                time.sleep(0.1)
+                progress = min(100, len(frames) / (rate / chunk_size * duration) * 100)
+                progress_bar['value'] = progress
+                root.after(10, lambda: progress_bar.update_idletasks())
             except Exception as e:
                 print(f"Error reading audio: {e}")
                 break
 
-        # Stop the stream and save the audio when recording is done
+        # Save audio to file
+        try:
+            with wave.open(audio_file, 'wb') as wf:
+                wf.setnchannels(channels)
+                wf.setsampwidth(p.get_sample_size(pyaudio.paInt16))
+                wf.setframerate(rate)
+                wf.writeframes(b''.join(frames))
+        except Exception as e:
+            print(f"Error saving audio file: {e}")
+        
         stream.stop_stream()
         stream.close()
+        p.terminate()
 
-    recording = True
     threading.Thread(target=record_audio, daemon=True).start()
 
 # Function to stop recording
@@ -71,19 +85,16 @@ def stop_recording():
 # Function to transcribe audio
 def transcribe_audio():
     if model is None:
-        transcription_box.insert(tk.END, "Whisper model not loaded. Please restart the application.\n")
+        transcription_box.insert(tk.END, "Whisper model not loaded.\n")
         return
 
     try:
-        # Load the audio for transcription (assuming you've saved it as 'audio_file')
         result = model.transcribe(audio_file)
         transcription_text = result['text']
 
-        # Save the transcription to a file
         with open(transcription_file, 'w') as f:
             f.write(transcription_text)
 
-        # Display transcription in a text box
         transcription_box.delete(1.0, tk.END)
         transcription_box.insert(tk.END, transcription_text)
     except Exception as e:
@@ -93,24 +104,26 @@ def transcribe_audio():
 root = tk.Tk()
 root.title("Audio Recorder")
 
-# Create UI elements (buttons, labels, etc.)
+# UI Elements
 record_button = tk.Button(root, text="Start Recording", command=start_recording)
 record_button.pack(pady=10)
 
-# Transcription box
+stop_button = tk.Button(root, text="Stop Recording", command=stop_recording)
+stop_button.pack(pady=10)
+
+transcribe_button = tk.Button(root, text="Transcribe Audio", command=transcribe_audio)
+transcribe_button.pack(pady=10)
+
 transcription_box = tk.Text(root, height=10, width=50)
 transcription_box.pack(pady=10)
 
-# Recording duration input
 duration_label = tk.Label(root, text="Recording Duration (seconds):")
 duration_label.pack(pady=5)
 
-duration_spinbox = tk.Spinbox(root, from_=1, to_=300, width=5)  # 1 to 300 seconds
+duration_spinbox = tk.Spinbox(root, from_=1, to_=300, width=5)
 duration_spinbox.pack(pady=5)
 
-# Progress bar widget at the bottom
-progress_bar = tk.Progressbar(root, orient="horizontal", length=400, mode="determinate")
+progress_bar = ttk.Progressbar(root, orient="horizontal", length=400, mode="determinate")
 progress_bar.pack(pady=10)
 
-# Start the Tkinter main loop
 root.mainloop()
