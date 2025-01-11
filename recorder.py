@@ -3,6 +3,7 @@ import wave
 import threading
 import logging
 import os
+import shutil
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -15,6 +16,7 @@ class AudioRecorder:
         self.stream = None
         self.frames = []
         self.recording = False
+        self.filepath = None
     
     def set_save_directory(self, directory):
         self.save_directory = directory
@@ -45,10 +47,10 @@ class AudioRecorder:
         self.stream.stop_stream()
         self.stream.close()
         self.save_recording()
-        logging.info("Recording stopped and saved to output.wav")
+        logging.info("Recording stopped and saved")
 
     def save_recording(self):
-        # Ensure save_directory is set, otherwise default to the current directory
+        # Always save as output.wav in the specified directory
         if hasattr(self, "save_directory"):
             self.filepath = os.path.join(self.save_directory, "output.wav")
         else:
@@ -61,3 +63,20 @@ class AudioRecorder:
         wf.writeframes(b"".join(self.frames))
         wf.close()
         logging.info(f"Recording saved to {self.filepath}")
+
+    def rename_audio(self, new_name):
+        if not self.filepath or not os.path.exists(self.filepath):
+            logging.error("No audio file exists to rename")
+            return False
+        
+        directory = os.path.dirname(self.filepath)
+        new_filepath = os.path.join(directory, f"{new_name}.wav")
+        
+        try:
+            shutil.move(self.filepath, new_filepath)
+            self.filepath = new_filepath
+            logging.info(f"Audio file renamed to {new_filepath}")
+            return True
+        except Exception as e:
+            logging.error(f"Error renaming audio file: {e}")
+            return False

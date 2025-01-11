@@ -1,6 +1,7 @@
 import os
 import whisper
 import logging
+import shutil
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -14,6 +15,7 @@ class AudioTranscriber:
         except Exception as e:
             logging.error(f"Error loading Whisper model: {e}")
             self.model = None
+        self.transcription_file = None
 
     def transcribe_audio(self, filepath, save_directory=None):
         if not self.model:
@@ -21,20 +23,54 @@ class AudioTranscriber:
             return "Error: Whisper model not loaded.\n"
 
         try:
-            result = self.model.transcribe(filepath)
-            transcription_text = result['text']
+            if not os.path.exists(filepath):
+                error_msg = f"Audio file not found at: {filepath}"
+                logging.error(error_msg)
+                return f"Error: {error_msg}\n"
 
-            if save_directory:
-                os.makedirs(save_directory, exist_ok=True)  # Ensure the directory exists
-                save_path = os.path.join(save_directory, "transcription.txt")
-            else:
-                save_path = "transcription.txt"
-
-            with open(save_path, "w", encoding="utf-8") as f:
-                f.write(transcription_text)
+            # Transcribe the audio data
+            logging.info("Starting transcription...")
+            result = self.model.transcribe(filepath, language='en')
+            transcription_text = result['text'].strip()
+            logging.info("Transcription completed")
             
-            logging.info(f"Transcription saved to {save_path}")
+            if not transcription_text:  # Check if transcription is empty
+                return "Error: No speech detected in the audio file.\n"
+                
             return transcription_text
         except Exception as e:
-            logging.error(f"Error during transcription: {e}")
-            return f"Error: {e}\n"
+            error_msg = f"Error during transcription: {str(e)}"
+            logging.error(error_msg)
+            return f"Error: {error_msg}\n"
+
+    def save_transcription(self, text, save_directory=None):
+        try:
+            if save_directory:
+                self.transcription_file = os.path.join(save_directory, "output_transcription.txt")
+            else:
+                self.transcription_file = "output_transcription.txt"
+
+            with open(self.transcription_file, "w", encoding="utf-8") as f:
+                f.write(text)
+            logging.info(f"Transcription saved to {self.transcription_file}")
+            return True
+        except Exception as e:
+            logging.error(f"Error saving transcription: {e}")
+            return False
+
+    def rename_transcription(self, new_name):
+        if not self.transcription_file or not os.path.exists(self.transcription_file):
+            logging.error("No transcription file exists to rename")
+            return False
+        
+        directory = os.path.dirname(self.transcription_file)
+        new_filepath = os.path.join(directory, f"{new_name}_transcription.txt")
+        
+        try:
+            shutil.move(self.transcription_file, new_filepath)
+            self.transcription_file = new_filepath
+            logging.info(f"Transcription file renamed to {new_filepath}")
+            return True
+        except Exception as e:
+            logging.error(f"Error renaming transcription file: {e}")
+            return False
