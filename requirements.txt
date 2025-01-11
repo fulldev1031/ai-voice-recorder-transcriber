@@ -4,3 +4,4 @@ logging
 numpy<2
 Torch
 pyaudio
+ttkbootstrap
