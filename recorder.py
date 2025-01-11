@@ -22,17 +22,21 @@ class AudioRecorder:
 
     def start_recording(self):
         self.frames = []
-        self.stream = self.audio.open(
-            format=pyaudio.paInt16,
-            channels=1,
-            rate=44100,
-            input=True,
-            frames_per_buffer=1024,
-        )
-        self.recording = True
-        self.thread = threading.Thread(target=self.record)
-        self.thread.start()
-        logging.info("Recording started")
+        try:
+            self.stream = self.audio.open(
+                format=pyaudio.paInt16,
+                channels=1,
+                rate=44100,
+                input=True,
+                frames_per_buffer=1024,
+            )
+            self.recording = True
+            self.thread = threading.Thread(target=self.record)
+            self.thread.start()
+            logging.info("Recording started")
+        except Exception as e:
+            logging.error(f"Error starting recording: {e}")
+            raise RuntimeError(f"Error starting recording: {e}")
 
     def record(self):
         while self.recording:

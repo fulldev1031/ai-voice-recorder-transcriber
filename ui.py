@@ -44,12 +44,18 @@ def start_recording(event=None):
         logging.warning("Save directory is not set. Please select a directory first.")
         return
     recorder.set_save_directory(save_directory)
-    recorder.start_recording()
-    start_button.config(state=tk.DISABLED)
-    stop_button.config(state=tk.NORMAL)
-    transcribe_button.config(state=tk.DISABLED)
-    transcription_box.delete(1.0, tk.END)  # Clear previous transcription
-    logging.info("Start recording button clicked")
+    try:
+        recorder.start_recording()
+        start_button.config(state=tk.DISABLED)
+        stop_button.config(state=tk.NORMAL)
+        transcribe_button.config(state=tk.DISABLED)
+        transcription_box.delete(1.0, tk.END)  # Clear previous transcription
+        logging.info("Start recording button clicked")
+    except RuntimeError as e:
+        logging.error(e)
+        log_box.config(state=tk.NORMAL)
+        log_box.insert(tk.END, f"Error: {e}\n")
+        log_box.config(state=tk.DISABLED)
 
 def stop_recording(event=None):
     recorder.stop_recording()
