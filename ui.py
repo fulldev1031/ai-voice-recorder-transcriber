@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 import warnings
 import torch
 from tkinter import simpledialog
@@ -12,7 +10,6 @@ warnings.filterwarnings(
     ),
 )
 
->>>>>>> Stashed changes
 import tkinter as tk
 from tkinter import filedialog
 from recorder import AudioRecorder
@@ -60,14 +57,6 @@ def start_recording(event=None):
         return
     
     recorder.set_save_directory(save_directory)
-<<<<<<< Updated upstream
-    recorder.start_recording()
-    start_button.config(state=tk.DISABLED)
-    stop_button.config(state=tk.NORMAL)
-    transcribe_button.config(state=tk.DISABLED)
-    transcription_box.delete(1.0, tk.END)  # Clear previous transcription
-    logging.info("Start recording button clicked")
-=======
     try:
         recorder.start_recording()
         start_button.config(state=tk.DISABLED)
@@ -82,7 +71,6 @@ def start_recording(event=None):
         log_box.config(state=tk.NORMAL)
         log_box.insert(tk.END, f"Error: {e}\n")
         log_box.config(state=tk.DISABLED)
->>>>>>> Stashed changes
 
 def stop_recording(event=None):
     recorder.stop_recording()
@@ -90,7 +78,6 @@ def stop_recording(event=None):
     stop_button.config(state=tk.DISABLED)
     transcribe_button.config(state=tk.NORMAL)
     rename_audio_button.config(state=tk.NORMAL)
-    rename_transcription_button.config(state=tk.DISABLED)
     logging.info("Stop recording button clicked")
 
 def transcribe_audio(event=None):
