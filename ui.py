@@ -1,3 +1,14 @@
+import warnings
+import torch
+
+# Suppress specific warning
+warnings.filterwarnings(
+    "ignore",
+    message=(
+        "You are using `torch.load` with `weights_only=False`.*"
+    ),
+)
+
 import tkinter as tk
 from tkinter import filedialog
 from recorder import AudioRecorder
