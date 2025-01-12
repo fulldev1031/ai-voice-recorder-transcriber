@@ -396,19 +396,143 @@ class TextBoxLogHandler(logging.Handler):
         super().__init__()
         self.text_widget = text_widget
 
-    def emit(self, record):
-        try:
-            msg = self.format(record)
-            self.text_widget.config(state=tk.NORMAL)
-            self.text_widget.insert(tk.END, msg + '\n')
-            self.text_widget.config(state=tk.DISABLED)
-            self.text_widget.see(tk.END)
-        except Exception as e:
-            print(f"Error in log handler: {e}")
-
-if __name__ == "__main__":
+def emit(self, record):
     try:
-        app = AudioRecorderUI()
+        msg = self.format(record)
+        self.text_widget.config(state=tk.NORMAL)
+        self.text_widget.insert(tk.END, msg + '\n')
+        self.text_widget.config(state=tk.DISABLED)
+        self.text_widget.see(tk.END)
     except Exception as e:
-        print(f"Fatal error: {e}")
-        sys.exit(1)
+        print(f"Error in log handler: {e}")
+
+# Set default save directory to the current working directory
+save_directory = os.getcwd()
+logging.info(f"Default save directory set to: {save_directory}")
+
+def browse_directory(event=None):
+    global save_directory
+    directory = filedialog.askdirectory(title="Select Directory")
+    if directory:
+        save_directory = directory
+        logging.info(f"Save directory selected: {save_directory}")
+    else:
+        logging.info(f"No directory selected. Using default: {save_directory}")
+
+def start_recording(event=None):
+    if not save_directory:
+        logging.warning("Save directory is not set. Please select a directory first.")
+        return
+    
+    recorder.set_save_directory(save_directory)
+    try:
+        recorder.start_recording()
+        start_button.config(state=tk.DISABLED)
+        stop_button.config(state=tk.NORMAL)
+        transcribe_button.config(state=tk.DISABLED)
+        rename_audio_button.config(state=tk.DISABLED)
+        rename_transcription_button.config(state=tk.DISABLED)
+        analyze_button.config(state=tk.DISABLED)  # Disable emotion analysis button
+
+        transcription_box.delete(1.0, tk.END)  # Clear previous transcription
+        logging.info("Start recording button clicked")
+    except RuntimeError as e:
+        logging.error(e)
+        log_box.config(state=tk.NORMAL)
+        log_box.insert(tk.END, f"Error: {e}\n")
+        log_box.config(state=tk.DISABLED)
+
+def stop_recording(event=None):
+    recorder.stop_recording()
+    start_button.config(state=tk.NORMAL)
+    stop_button.config(state=tk.DISABLED)
+    transcribe_button.config(state=tk.NORMAL)
+    rename_audio_button.config(state=tk.NORMAL)
+    logging.info("Stop recording button clicked")
+
+def transcribe_audio(event=None):
+    if not recorder.filepath:
+        logging.warning("No audio file available for transcription.")
+        transcription_box.insert(tk.END, "No audio file available for transcription.\n")
+        return
+    
+    # Clear previous transcription
+    transcription_box.delete(1.0, tk.END)
+    # Get transcription
+    transcription = transcriber.transcribe_audio(recorder.filepath, save_directory)
+    analyze_button.config(state=tk.NORMAL)  # Enable emotion analysis after transcription
+
+    # Check for errors and handle transcription
+    if not transcription.startswith("Error:"):
+        # Save transcription to file
+        if transcriber.save_transcription(transcription, save_directory):
+            # Enable rename button only if save was successful
+            rename_transcription_button.config(state=tk.NORMAL)
+        
+        # Display transcription in text box
+        transcription_box.delete(1.0, tk.END)  # Clear again to be safe
+        transcription_box.insert(tk.END, transcription)
+        logging.info("Transcription displayed in the UI.")
+    else:
+        # If there was an error, display it and disable rename button
+        transcription_box.insert(tk.END, transcription)
+        rename_transcription_button.config(state=tk.DISABLED)
+        logging.error("Failed to transcribe audio")
+
+def rename_audio_file(event=None):
+    if not recorder.filepath:
+        logging.warning("No audio file available to rename.")
+        return
+    
+    new_name = simpledialog.askstring("Rename Audio File", "Enter new filename (without extension):")
+    if new_name:
+        if recorder.rename_audio(new_name):
+            logging.info(f"Audio file renamed successfully to {new_name}.wav")
+        else:
+            logging.error("Failed to rename audio file")
+
+def rename_transcription_file(event=None):
+    if not transcriber.transcription_file:
+        logging.warning("No transcription file available to rename.")
+        return
+    
+    new_name = simpledialog.askstring("Rename Transcription File", "Enter new filename (without extension):")
+    if new_name:
+        if transcriber.rename_transcription(new_name):
+            logging.info(f"Transcription file renamed successfully to {new_name}_transcription.txt")
+        else:
+            logging.error("Failed to rename transcription file")
+
+def analyze_emotions(event=None):
+    if not recorder.filepath or not os.path.exists(recorder.filepath):
+        logging.warning("No audio file available for emotion analysis.")
+        transcription_box.insert(tk.END, "\nNo audio file available for emotion analysis.")
+        return
+
+try:
+    app = AudioRecorderUI()
+except Exception as e:
+    print(f"Fatal error: {e}")
+    sys.exit(1)
+
+recorder = AudioRecorder()
+transcriber = AudioTranscriber()
+emotion_analyzer = EmotionAnalyzer()
+root = tk.Tk()
+root.title("Audio Recorder & Emotion Analyzer")
+root.geometry("500x900")
+root.configure(bg="#2b2b2b")
+
+# Configure logging to display in the log box
+log_box = tk.Text(root, height=10, width=60, wrap=tk.WORD, state=tk.DISABLED, bg="#333333", fg="white", font=("Helvetica", 10))
+log_box.pack(pady=10)
+
+log_handler = TextBoxLogHandler(log_box)
+log_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+logging.getLogger().addHandler(log_handler)
+logging.getLogger().setLevel(logging.DEBUG)
+
+# Other UI elements (buttons, labels, etc.) can be added here as needed.
+
+root.mainloop()
+
