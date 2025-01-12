@@ -6,3 +6,7 @@ torch
 pyaudio
 ttkbootstrap
 librosa
+transformers
+soundfile
+torchaudio
+torchvision
