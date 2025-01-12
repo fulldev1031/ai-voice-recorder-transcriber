@@ -1,12 +1,12 @@
 tkinter
-whisper
+openai-whisper
 logging
 numpy<2
-Torch
+torch
 pyaudio
 ttkbootstrap
-transformers
 librosa
+transformers
 soundfile
 torchaudio
 torchvision
