@@ -16,6 +16,7 @@ from recorder import AudioRecorder
 from transcriber import AudioTranscriber
 from emotion_analyzer import EmotionAnalyzer
 from text_processor import TextProcessor
+from text_analyzer import TextAnalyzer
 import logging
 import warnings
 import os
@@ -177,6 +178,40 @@ def analyze_emotions(event=None):
         logging.error(f"Error during emotion analysis: {e}")
         transcription_box.insert(tk.END, f"\nError during emotion analysis: {e}")
         
+def analyze_text_content(event=None):
+    """Analyze the transcribed text for key topics and entities."""    
+    try:
+        # Get text from transcription text widget
+        text = transcription_box.get("1.0", tk.END).strip()
+        if not text:
+            logging.error("No text to analyze")
+            return
+            
+        # Perform analysis
+        analysis_results = text_analyzer.analyze_text(text)
+        formatted_results = text_analyzer.format_analysis_results(analysis_results)
+        
+        # Show results in a new window
+        analysis_window = tk.Toplevel(root)
+        analysis_window.title("Text Analysis")
+        analysis_window.geometry("600x600")
+        
+        # Create text widget with scrollbar
+        analysis_text = tk.Text(analysis_window, wrap=tk.WORD, height=30, width=70)
+        scrollbar = tk.Scrollbar(analysis_window, command=analysis_text.yview)
+        analysis_text.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack widgets
+        analysis_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 0), pady=10)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=10, padx=(0, 10))
+        
+        # Insert analysis results
+        analysis_text.insert("1.0", formatted_results)
+        analysis_text.config(state=tk.DISABLED)
+        
+    except Exception as e:
+        logging.error(f"Error during text analysis: {e}")
+
 def set_api_key(event=None):
     api_key = simpledialog.askstring("API Key", "Enter your Gemini API Key:", show='*')
     if api_key:
@@ -249,6 +284,7 @@ recorder = AudioRecorder()
 transcriber = AudioTranscriber()
 emotion_analyzer = EmotionAnalyzer()
 text_processor = TextProcessor()  # Will automatically load API key from .env if available
+text_analyzer = TextAnalyzer()
 root = tk.Tk()
 root.title("Audio Recorder & Emotion Analyzer")
 root.geometry("500x900")
@@ -288,7 +324,7 @@ button_style = {
     "relief": tk.RAISED,
     "bd": 3,
     "width": 20,
-    "height": 1,  # Reduced button height
+    "height": 1, 
 }
 
 browse_button = tk.Button(
@@ -337,6 +373,9 @@ analyze_button = tk.Button(
     button_frame, text="Analyze Emotions (E)", command=analyze_emotions, state=tk.DISABLED, **button_style
 )
 analyze_button.pack(pady=3)
+
+analyze_text_button = tk.Button(button_frame, text="Analyze Text", command=analyze_text_content)
+analyze_text_button.pack(side=tk.LEFT, padx=5)
 
 api_key_button = tk.Button(button_frame, text="Set API Key", command=set_api_key)
 api_key_button.pack(side=tk.LEFT, padx=5)
