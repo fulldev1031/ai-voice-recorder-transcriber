@@ -41,12 +41,6 @@ class AudioTranscriber:
             # Transcribe the audio data
             logging.info("Starting transcription...")
             result = self.model.transcribe(audio_data, language='en')
-            transcription_text = result['text']
-            logging.info("Transcription completed")
-
-            # Transcribe the audio data
-            logging.info("Starting transcription...")
-            result = self.model.transcribe(filepath, language='en')
             transcription_text = result['text'].strip()
             logging.info("Transcription completed")
             
