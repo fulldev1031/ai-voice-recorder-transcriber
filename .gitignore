@@ -6,6 +6,7 @@ __pycache__/
 # Ignore audio and transcription files
 output.wav
 transcription.txt
+emotion_analysis.txt
 
 # Ignore virtual environment directories (if applicable)
 venv/
@@ -18,3 +19,4 @@ env/
 # Ignore system-specific files (e.g., MacOS, Windows)
 .DS_Store
 Thumbs.db
+small.pt

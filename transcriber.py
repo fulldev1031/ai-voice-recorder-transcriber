@@ -2,6 +2,8 @@ import os
 import whisper
 import logging
 import shutil
+import librosa
+import numpy as np
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -27,6 +29,20 @@ class AudioTranscriber:
                 error_msg = f"Audio file not found at: {filepath}"
                 logging.error(error_msg)
                 return f"Error: {error_msg}\n"
+
+            # Load and preprocess audio file using librosa
+            logging.info(f"Loading audio file: {filepath}")
+            audio_data, sr = librosa.load(filepath, sr=16000, mono=True)
+            
+            # Ensure audio data is float32
+            audio_data = audio_data.astype(np.float32)
+            logging.info(f"Audio loaded successfully. Shape: {audio_data.shape}, dtype: {audio_data.dtype}")
+
+            # Transcribe the audio data
+            logging.info("Starting transcription...")
+            result = self.model.transcribe(audio_data, language='en')
+            transcription_text = result['text']
+            logging.info("Transcription completed")
 
             # Transcribe the audio data
             logging.info("Starting transcription...")
@@ -72,5 +88,6 @@ class AudioTranscriber:
             logging.info(f"Transcription file renamed to {new_filepath}")
             return True
         except Exception as e:
-            logging.error(f"Error renaming transcription file: {e}")
-            return False
+            error_msg = f"Error renaming transcription file: {str(e)}"
+            logging.error(error_msg)
+            return f"Error: {error_msg}\n"
