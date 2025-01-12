@@ -13,6 +13,7 @@ import tkinter as tk
 from tkinter import filedialog
 from recorder import AudioRecorder
 from transcriber import AudioTranscriber
+from emotion_analyzer import EmotionAnalyzer
 import logging
 import warnings
 import os
@@ -24,7 +25,6 @@ logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# Custom log handler to display logs in the UI
 class TextBoxLogHandler(logging.Handler):
     def __init__(self, text_widget):
         super().__init__()
@@ -35,7 +35,7 @@ class TextBoxLogHandler(logging.Handler):
         self.text_widget.config(state=tk.NORMAL)
         self.text_widget.insert(tk.END, msg + '\n')
         self.text_widget.config(state=tk.DISABLED)
-        self.text_widget.see(tk.END)  # Auto-scroll to the latest log
+        self.text_widget.see(tk.END)
 
 # Set default save directory to the current working directory
 save_directory = os.getcwd()
@@ -60,6 +60,7 @@ def start_recording(event=None):
         start_button.config(state=tk.DISABLED)
         stop_button.config(state=tk.NORMAL)
         transcribe_button.config(state=tk.DISABLED)
+        analyze_button.config(state=tk.DISABLED)  # Disable emotion analysis button
         transcription_box.delete(1.0, tk.END)  # Clear previous transcription
         logging.info("Start recording button clicked")
     except RuntimeError as e:
@@ -83,12 +84,51 @@ def transcribe_audio(event=None):
     transcription = transcriber.transcribe_audio(recorder.filepath, save_directory)
     transcription_box.delete(1.0, tk.END)
     transcription_box.insert(tk.END, transcription)
+    analyze_button.config(state=tk.NORMAL)  # Enable emotion analysis after transcription
     logging.info("Transcription displayed in the UI.")
 
+def analyze_emotions(event=None):
+    if not recorder.filepath or not os.path.exists(recorder.filepath):
+        logging.warning("No audio file available for emotion analysis.")
+        transcription_box.insert(tk.END, "\nNo audio file available for emotion analysis.")
+        return
+    
+    try:
+        # Get the current transcription text
+        current_text = transcription_box.get("1.0", tk.END).strip()
+        if not current_text:
+            logging.warning("No transcription available for emotion analysis.")
+            return
+            
+        # Remove the "Transcription:" prefix if it exists
+        if current_text.startswith("Transcription:"):
+            current_text = current_text.replace("Transcription:", "", 1).strip()
+            
+        # Perform emotion analysis
+        emotion_analysis = emotion_analyzer.analyze(current_text, recorder.filepath)
+        
+        # Save emotion analysis
+        if save_directory:
+            emotion_path = os.path.join(save_directory, "emotion_analysis.txt")
+        else:
+            emotion_path = "emotion_analysis.txt"
+            
+        with open(emotion_path, "w", encoding="utf-8") as f:
+            f.write(f"Emotion Analysis:\n{emotion_analysis}")
+        
+        # Display in UI
+        transcription_box.insert(tk.END, "\n\nEmotion Analysis:\n" + emotion_analysis)
+        logging.info(f"Emotion analysis completed and saved to {emotion_path}")
+        
+    except Exception as e:
+        logging.error(f"Error during emotion analysis: {e}")
+        transcription_box.insert(tk.END, f"\nError during emotion analysis: {e}")
+        
 recorder = AudioRecorder()
 transcriber = AudioTranscriber()
+emotion_analyzer = EmotionAnalyzer()
 root = tk.Tk()
-root.title("Audio Recorder")
+root.title("Audio Recorder & Emotion Analyzer")
 root.geometry("500x900")
 root.configure(bg="#2b2b2b")
 
@@ -97,6 +137,7 @@ root.bind("<d>", browse_directory)
 root.bind("<s>", start_recording)
 root.bind("<x>", stop_recording)
 root.bind("<t>", transcribe_audio)
+root.bind("<e>", analyze_emotions)
 
 # Create log box
 log_box = tk.Text(root, height=10, width=60, wrap=tk.WORD, state=tk.DISABLED, bg="#333333", fg="white", font=("Helvetica", 10))
@@ -119,14 +160,17 @@ button_style = {
     "width": 20,
     "height": 2,
 }
+
 browse_button = tk.Button(
     root, text="Browse Directory", command=browse_directory, **button_style
 )
 browse_button.pack(pady=10)
+
 start_button = tk.Button(
     root, text="Start Recording", command=start_recording, **button_style
 )
 start_button.pack(pady=10)
+
 stop_button = tk.Button(
     root,
     text="Stop Recording",
@@ -135,10 +179,16 @@ stop_button = tk.Button(
     **button_style
 )
 stop_button.pack(pady=10)
+
 transcribe_button = tk.Button(
     root, text="Transcribe", command=transcribe_audio, state=tk.DISABLED, **button_style
 )
 transcribe_button.pack(pady=10)
+
+analyze_button = tk.Button(
+    root, text="Analyze Emotions", command=analyze_emotions, state=tk.DISABLED, **button_style
+)
+analyze_button.pack(pady=10)
 
 # Transcription Box
 transcription_box = tk.Text(root, height=15, width=50, wrap=tk.WORD)
@@ -147,7 +197,7 @@ transcription_box.pack(pady=10)
 # Add hotkey label
 hotkey_label = tk.Label(
     root,
-    text="Hotkeys:\nD - Select Directory\nS - Start Recording\nX - Stop Recording\nT - Transcribe",
+    text="Hotkeys:\nD - Select Directory\nS - Start Recording\nX - Stop Recording\nT - Transcribe\nE - Analyze Emotions",
     bg="#2b2b2b",
     fg="white",
     font=("Helvetica", 10),

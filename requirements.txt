@@ -5,3 +5,8 @@ numpy<2
 Torch
 pyaudio
 ttkbootstrap
+transformers
+librosa
+soundfile
+torchaudio
+torchvision
