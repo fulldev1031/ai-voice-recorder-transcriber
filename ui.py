@@ -11,7 +11,7 @@ warnings.filterwarnings(
 )
 
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, TclError
 from recorder import AudioRecorder
 from transcriber import AudioTranscriber
 from emotion_analyzer import EmotionAnalyzer
@@ -20,7 +20,7 @@ from text_analyzer import TextAnalyzer
 import logging
 import warnings
 import os
-
+from tkinterdnd2 import TkinterDnD, DND_FILES
 # Suppress FP16 warning
 warnings.filterwarnings("ignore", message="FP16 is not supported on CPU; using FP32 instead")
 
@@ -43,6 +43,60 @@ class TextBoxLogHandler(logging.Handler):
 # Set default save directory to the current working directory
 save_directory = os.getcwd()
 logging.info(f"Default save directory set to: {save_directory}")
+class DropZone(tk.Label):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        self.configure(relief="groove", borderwidth=2)
+        
+        # Enable drag and drop for files
+        self.drop_target_register(DND_FILES)
+        self.dnd_bind('<<Drop>>', self.handle_drop)
+        
+    def handle_drop(self, event):
+        # Get the dropped file path and handle it
+        file_path = event.data
+        if file_path.startswith('{') and file_path.endswith('}'):
+            file_path = file_path[1:-1]
+        handle_dropped_file(file_path)
+
+def handle_dropped_file(file_path):
+    if not os.path.exists(file_path):
+        error_msg = f"File not found: {file_path}"
+        logging.error(error_msg)
+        transcription_box.delete(1.0, tk.END)
+        transcription_box.insert(tk.END, f"Error: {error_msg}")
+        return
+        
+    # Check if it's an audio file
+    valid_extensions = ('.wav', '.mp3', '.m4a', '.flac')
+    if not file_path.lower().endswith(valid_extensions):
+        error_msg = "Invalid file type. Please drop an audio file."
+        logging.error(error_msg)
+        transcription_box.delete(1.0, tk.END)
+        transcription_box.insert(tk.END, f"Error: {error_msg}")
+        return
+        
+    try:
+        # Update the UI to show file is being processed
+        transcription_box.delete(1.0, tk.END)
+        transcription_box.insert(tk.END, "Processing dropped file...\n")
+        root.update()
+        
+        # Set the filepath in the recorder
+        recorder.filepath = file_path
+        
+        # Enable relevant buttons
+        transcribe_button.config(state=tk.NORMAL)
+        rename_audio_button.config(state=tk.NORMAL)
+        
+        # Automatically start transcription
+        transcribe_audio()
+        
+    except Exception as e:
+        error_msg = f"Error processing dropped file: {str(e)}"
+        logging.error(error_msg)
+        transcription_box.delete(1.0, tk.END)
+        transcription_box.insert(tk.END, f"Error: {error_msg}")
 
 def browse_directory(event=None):
     global save_directory
@@ -284,12 +338,14 @@ recorder = AudioRecorder()
 transcriber = AudioTranscriber()
 emotion_analyzer = EmotionAnalyzer()
 text_processor = TextProcessor()  # Will automatically load API key from .env if available
+
 text_analyzer = TextAnalyzer()
-root = tk.Tk()
+root = TkinterDnD.Tk()
+
 root.title("Audio Recorder & Emotion Analyzer")
 root.geometry("500x900")
 root.configure(bg="#2b2b2b")
-
+# root.tk.eval('package require tkdnd')
 # Bind hotkeys
 root.bind("<d>", browse_directory)
 root.bind("<s>", start_recording)
@@ -314,6 +370,18 @@ log_handler = TextBoxLogHandler(log_box)
 log_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
 logging.getLogger().addHandler(log_handler)
 logging.getLogger().setLevel(logging.DEBUG)
+drop_zone = DropZone(
+    root,
+    text="Drag and drop audio files here\nor use the buttons below",
+    bg="#333333",
+    fg="white",
+    font=("Helvetica", 12),
+    width=40,
+    height=3
+)
+drop_zone.pack(fill=tk.X, padx=10, pady=5)
+root.tk.eval(f'tkdnd::drop_target register {drop_zone.winfo_pathname(drop_zone.winfo_id())} *')
+root.tk.eval(f'tkdnd::drop_target register {root.winfo_pathname(root.winfo_id())} *')
 
 button_style = {
     "font": ("Helvetica", 12, "bold"),
@@ -421,7 +489,23 @@ transcription_box = tk.Text(
 )
 transcription_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 scrollbar.config(command=transcription_box.yview)
+def setup_tkdnd():
+    try:
+        root.tk.eval('package require tkdnd')
+        root.tk.call('tkdnd::drop_target', 'register', root, ('DND_Files', 'Files'))
+        logging.info("TkDND initialized successfully")
+    except tk.TclError as e:
+        logging.error(f"Failed to initialize TkDND: {e}")
+        # Create a label to show error
+        tk.Label(
+            root,
+            text="Drag and drop not available.\nPlease install python-tkdnd package.",
+            bg="#ff6b6b",
+            fg="white",
+            font=("Helvetica", 10)
+        ).pack(fill=tk.X, padx=10, pady=5)
 
+setup_tkdnd()
 # Add hotkey label at the bottom
 hotkey_label = tk.Label(
     root,
