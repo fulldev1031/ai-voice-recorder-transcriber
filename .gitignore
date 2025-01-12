@@ -16,6 +16,9 @@ env/
 .idea/
 .vscode/
 
+# Environment variables
+.env
+
 # Ignore system-specific files (e.g., MacOS, Windows)
 .DS_Store
 Thumbs.db
