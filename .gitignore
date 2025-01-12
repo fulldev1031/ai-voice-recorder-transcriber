@@ -7,6 +7,7 @@ __pycache__/
 output.wav
 transcription.txt
 emotion_analysis.txt
+output_transcription.txt
 
 # Ignore virtual environment directories (if applicable)
 venv/
