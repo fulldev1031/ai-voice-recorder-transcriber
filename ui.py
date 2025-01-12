@@ -15,6 +15,7 @@ from tkinter import filedialog
 from recorder import AudioRecorder
 from transcriber import AudioTranscriber
 from emotion_analyzer import EmotionAnalyzer
+from text_processor import TextProcessor
 import logging
 import warnings
 import os
@@ -176,9 +177,78 @@ def analyze_emotions(event=None):
         logging.error(f"Error during emotion analysis: {e}")
         transcription_box.insert(tk.END, f"\nError during emotion analysis: {e}")
         
+def set_api_key(event=None):
+    api_key = simpledialog.askstring("API Key", "Enter your Gemini API Key:", show='*')
+    if api_key:
+        success = text_processor.set_api_key(api_key)
+        if success:
+            logging.info("API key set successfully")
+        else:
+            logging.error("Failed to initialize with provided API key")
+
+def summarize_text(event=None):
+    if not text_processor.model:
+        logging.error("Please set Gemini API key first")
+        return
+        
+    try:
+        # Get text from transcription text widget
+        text = transcription_box.get("1.0", tk.END).strip()
+        if not text:
+            logging.error("No text to summarize")
+            return
+            
+        summary = text_processor.summarize_text(text)
+        
+        # Show summary in a new window
+        summary_window = tk.Toplevel(root)
+        summary_window.title("Summary")
+        summary_window.geometry("600x400")
+        
+        summary_text = tk.Text(summary_window, wrap=tk.WORD, height=15, width=60)
+        summary_text.pack(padx=10, pady=10, expand=True, fill='both')
+        summary_text.insert("1.0", summary)
+        summary_text.config(state=tk.DISABLED)
+        
+    except Exception as e:
+        logging.error(f"Error generating summary: {e}")
+
+def query_text(event=None):
+    if not text_processor.model:
+        logging.error("Please set Gemini API key first")
+        return
+        
+    try:
+        # Get text from transcription text widget
+        text = transcription_box.get("1.0", tk.END).strip()
+        if not text:
+            logging.error("No text to query")
+            return
+            
+        # Get query from user
+        query = simpledialog.askstring("Query", "Enter your question about the text:")
+        if not query:
+            return
+            
+        answer = text_processor.query_text(text, query)
+        
+        # Show answer in a new window
+        answer_window = tk.Toplevel(root)
+        answer_window.title("Answer")
+        answer_window.geometry("600x400")
+        
+        answer_text = tk.Text(answer_window, wrap=tk.WORD, height=15, width=60)
+        answer_text.pack(padx=10, pady=10, expand=True, fill='both')
+        answer_text.insert("1.0", answer)
+        answer_text.config(state=tk.DISABLED)
+        
+    except Exception as e:
+        logging.error(f"Error processing query: {e}")
+
 recorder = AudioRecorder()
 transcriber = AudioTranscriber()
 emotion_analyzer = EmotionAnalyzer()
+text_processor = TextProcessor()  # Will automatically load API key from .env if available
 root = tk.Tk()
 root.title("Audio Recorder & Emotion Analyzer")
 root.geometry("500x900")
@@ -195,9 +265,13 @@ root.bind("<y>", rename_transcription_file)
 root.bind("<e>", analyze_emotions)
 
 
+# Create frames for better organization
+button_frame = tk.Frame(root, bg="#2b2b2b")
+button_frame.pack(fill=tk.X, padx=10, pady=5)
+
 # Create log box
-log_box = tk.Text(root, height=10, width=60, wrap=tk.WORD, state=tk.DISABLED, bg="#333333", fg="white", font=("Helvetica", 10))
-log_box.pack(pady=10)
+log_box = tk.Text(button_frame, height=8, width=60, wrap=tk.WORD, state=tk.DISABLED, bg="#333333", fg="white", font=("Helvetica", 10))
+log_box.pack(pady=5)
 
 # Configure logging to display in the log box
 log_handler = TextBoxLogHandler(log_box)
@@ -214,69 +288,109 @@ button_style = {
     "relief": tk.RAISED,
     "bd": 3,
     "width": 20,
-    "height": 2,
+    "height": 1,  # Reduced button height
 }
 
 browse_button = tk.Button(
-    root, text="Browse Directory (D)", command=browse_directory, **button_style
+    button_frame, text="Browse Directory (D)", command=browse_directory, **button_style
 )
-browse_button.pack(pady=10)
+browse_button.pack(pady=3)
 
 start_button = tk.Button(
-    root, text="Start Recording (S)", command=start_recording, **button_style
+    button_frame, text="Start Recording (S)", command=start_recording, **button_style
 )
-start_button.pack(pady=10)
+start_button.pack(pady=3)
 
 stop_button = tk.Button(
-    root,
+    button_frame,
     text="Stop Recording (X)",
     command=stop_recording,
     state=tk.DISABLED,
     **button_style
 )
-stop_button.pack(pady=10)
+stop_button.pack(pady=3)
 
 rename_audio_button = tk.Button(
-    root,
+    button_frame,
     text="Rename Audio (R)",
     command=rename_audio_file,
     state=tk.DISABLED,
     **button_style
 )
-rename_audio_button.pack(pady=5)
+rename_audio_button.pack(pady=3)
 
 rename_transcription_button = tk.Button(
-    root,
+    button_frame,
     text="Rename Transcription (Y)",
     command=rename_transcription_file,
     state=tk.DISABLED,
     **button_style
 )
-rename_transcription_button.pack(pady=5)
+rename_transcription_button.pack(pady=3)
 
 transcribe_button = tk.Button(
-    root, text="Transcribe (T)", command=transcribe_audio, state=tk.DISABLED, **button_style
+    button_frame, text="Transcribe (T)", command=transcribe_audio, state=tk.DISABLED, **button_style
 )
-transcribe_button.pack(pady=5)
+transcribe_button.pack(pady=3)
 
 analyze_button = tk.Button(
-    root, text="Analyze Emotions (E)", command=analyze_emotions, state=tk.DISABLED, **button_style
+    button_frame, text="Analyze Emotions (E)", command=analyze_emotions, state=tk.DISABLED, **button_style
 )
-analyze_button.pack(pady=10)
+analyze_button.pack(pady=3)
+
+api_key_button = tk.Button(button_frame, text="Set API Key", command=set_api_key)
+api_key_button.pack(side=tk.LEFT, padx=5)
+
+summarize_button = tk.Button(button_frame, text="Summarize", command=summarize_text)
+summarize_button.pack(side=tk.LEFT, padx=5)
+
+query_button = tk.Button(button_frame, text="Ask Question", command=query_text)
+query_button.pack(side=tk.LEFT, padx=5)
+
+# Create a frame for transcription
+transcription_frame = tk.Frame(root, bg="#2b2b2b")
+transcription_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+
+# Transcription Label
+transcription_label = tk.Label(
+    transcription_frame,
+    text="Transcription and Analysis",
+    bg="#2b2b2b",
+    fg="white",
+    font=("Helvetica", 12, "bold")
+)
+transcription_label.pack(pady=5)
+
+# Create a frame for the text box and scrollbar
+text_container = tk.Frame(transcription_frame, bg="#2b2b2b")
+text_container.pack(fill=tk.BOTH, expand=True)
+
+# Add scrollbar
+scrollbar = tk.Scrollbar(text_container)
+scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
 # Transcription Box
-transcription_box = tk.Text(root, height=15, width=50, wrap=tk.WORD)
-transcription_box.pack(pady=10)
+transcription_box = tk.Text(
+    text_container,
+    height=12,
+    width=50,
+    wrap=tk.WORD,
+    bg="#333333",
+    fg="white",
+    font=("Helvetica", 11),
+    yscrollcommand=scrollbar.set
+)
+transcription_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+scrollbar.config(command=transcription_box.yview)
 
-# Add hotkey label
+# Add hotkey label at the bottom
 hotkey_label = tk.Label(
     root,
-
-    text="Hotkeys:\nD - Select Directory\nS - Start Recording\nX - Stop Recording\nT - Transcribe\nR - Rename Audio\nY - Rename Transcription \nE - Analyze Emotions",
+    text="Hotkeys:\nD - Select Directory | S - Start Recording | X - Stop Recording\nT - Transcribe | R - Rename Audio | Y - Rename Transcription | E - Analyze Emotions",
     bg="#2b2b2b",
     fg="white",
     font=("Helvetica", 10),
 )
-hotkey_label.pack(pady=10)
+hotkey_label.pack(pady=5)
 
 root.mainloop()
