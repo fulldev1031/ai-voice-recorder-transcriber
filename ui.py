@@ -90,11 +90,10 @@ def transcribe_audio(event=None):
     
     # Clear previous transcription
     transcription_box.delete(1.0, tk.END)
-
-    
     # Get transcription
     transcription = transcriber.transcribe_audio(recorder.filepath, save_directory)
-    
+    analyze_button.config(state=tk.NORMAL)  # Enable emotion analysis after transcription
+
     # Check for errors and handle transcription
     if not transcription.startswith("Error:"):
         # Save transcription to file
@@ -136,7 +135,6 @@ def rename_transcription_file(event=None):
         else:
             logging.error("Failed to rename transcription file")
 
-    transcription_box.insert(tk.END, transcription)
     analyze_button.config(state=tk.NORMAL)  # Enable emotion analysis after transcription
     logging.info("Transcription displayed in the UI.")
 
@@ -220,18 +218,18 @@ button_style = {
 }
 
 browse_button = tk.Button(
-    root, text="Browse Directory", command=browse_directory, **button_style
+    root, text="Browse Directory (D)", command=browse_directory, **button_style
 )
 browse_button.pack(pady=10)
 
 start_button = tk.Button(
-    root, text="Start Recording", command=start_recording, **button_style
+    root, text="Start Recording (S)", command=start_recording, **button_style
 )
 start_button.pack(pady=10)
 
 stop_button = tk.Button(
     root,
-    text="Stop Recording",
+    text="Stop Recording (X)",
     command=stop_recording,
     state=tk.DISABLED,
     **button_style
@@ -262,7 +260,7 @@ transcribe_button = tk.Button(
 transcribe_button.pack(pady=5)
 
 analyze_button = tk.Button(
-    root, text="Analyze Emotions", command=analyze_emotions, state=tk.DISABLED, **button_style
+    root, text="Analyze Emotions (E)", command=analyze_emotions, state=tk.DISABLED, **button_style
 )
 analyze_button.pack(pady=10)
 
