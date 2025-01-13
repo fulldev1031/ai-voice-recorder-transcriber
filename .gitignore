@@ -8,6 +8,7 @@ output.wav
 transcription.txt
 emotion_analysis.txt
 output_transcription.txt
+history.txt
 
 # Ignore virtual environment directories (if applicable)
 venv/
