@@ -18,6 +18,7 @@ class AudioTranscriber:
             logging.error(f"Error loading Whisper model: {e}")
             self.model = None
         self.transcription_file = None
+        self.segments_with_confidence = []
 
     def transcribe_audio(self, filepath, save_directory=None):
         if not self.model:
@@ -38,20 +39,67 @@ class AudioTranscriber:
             audio_data = audio_data.astype(np.float32)
             logging.info(f"Audio loaded successfully. Shape: {audio_data.shape}, dtype: {audio_data.dtype}")
 
-            # Transcribe the audio data
+            # Transcribe with word timestamps
             logging.info("Starting transcription...")
-            result = self.model.transcribe(audio_data, language='en')
-            transcription_text = result['text'].strip()
-            logging.info("Transcription completed")
+            result = self.model.transcribe(
+                audio_data, 
+                language='en',
+                word_timestamps=True
+            )
             
-            if not transcription_text:  # Check if transcription is empty
+            # Process segments with confidence scores
+            segments = result.get('segments', [])
+            
+            if not segments:
                 return "Error: No speech detected in the audio file.\n"
+            
+            # Format output with confidence scores
+            output_lines = []
+            output_lines.append("TRANSCRIPTION WITH CONFIDENCE SCORES")
+            output_lines.append("=" * 40)
+            output_lines.append("")
+
+            for segment in segments:
+                timestamp = f"[{self._format_time(segment['start'])} - {self._format_time(segment['end'])}]"
                 
-            return transcription_text
+                # Calculate confidence for this segment
+                confidence = self._calculate_segment_confidence(segment)
+                confidence_str = f"({confidence:.1%} confidence)"
+                
+                text = segment['text'].strip()
+                
+                output_lines.extend([
+                    timestamp,
+                    confidence_str,
+                    text,
+                    "-" * 40,
+                    ""
+                ])
+            
+            return "\n".join(output_lines)
+            
         except Exception as e:
             error_msg = f"Error during transcription: {str(e)}"
             logging.error(error_msg)
             return f"Error: {error_msg}\n"
+
+    def _calculate_segment_confidence(self, segment):
+        """Calculate confidence score for a segment based on word-level probabilities."""
+        if 'words' in segment and segment['words']:
+            # If word-level probabilities are available, use their average
+            word_probs = []
+            for word in segment['words']:
+                # Handle both possible formats of word confidence
+                prob = word.get('probability', word.get('confidence', 0.0))
+                word_probs.append(prob)
+            return sum(word_probs) / len(word_probs) if word_probs else 0.75
+        return 0.75  # Default confidence if no word-level data available
+
+    def _format_time(self, seconds):
+        """Convert seconds to MM:SS format"""
+        minutes = int(seconds // 60)
+        seconds = int(seconds % 60)
+        return f"{minutes:02d}:{seconds:02d}"
 
     def save_transcription(self, text, save_directory=None):
         try:

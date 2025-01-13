@@ -144,28 +144,75 @@ def transcribe_audio(event=None):
         transcription_box.insert(tk.END, "No audio file available for transcription.\n")
         return
     
-    # Clear previous transcription
-    transcription_box.delete(1.0, tk.END)
-    # Get transcription
-    transcription = transcriber.transcribe_audio(recorder.filepath, save_directory)
-    analyze_button.config(state=tk.NORMAL)  # Enable emotion analysis after transcription
-
-    # Check for errors and handle transcription
-    if not transcription.startswith("Error:"):
-        # Save transcription to file
-        if transcriber.save_transcription(transcription, save_directory):
-            # Enable rename button only if save was successful
-            rename_transcription_button.config(state=tk.NORMAL)
+    try:
+        # Clear previous transcription
+        transcription_box.delete(1.0, tk.END)
+        transcription_box.insert(tk.END, "Transcribing audio...\n")
+        root.update()
         
-        # Display transcription in text box
-        transcription_box.delete(1.0, tk.END)  # Clear again to be safe
-        transcription_box.insert(tk.END, transcription)
-        logging.info("Transcription displayed in the UI.")
-    else:
-        # If there was an error, display it and disable rename button
-        transcription_box.insert(tk.END, transcription)
+        # Get transcription with confidence scores
+        transcription = transcriber.transcribe_audio(recorder.filepath, save_directory)
+        analyze_button.config(state=tk.NORMAL)  # Enable emotion analysis after transcription
+
+        # Check for errors and handle transcription
+        if not transcription.startswith("Error:"):
+            # Save transcription to file
+            if transcriber.save_transcription(transcription, save_directory):
+                # Enable rename button only if save was successful
+                rename_transcription_button.config(state=tk.NORMAL)
+            
+            # Format and display transcription in text box with colors
+            transcription_box.delete(1.0, tk.END)
+            
+            # Split transcription into lines
+            lines = transcription.split('\n')
+            
+            # Configure text tags for different confidence levels
+            transcription_box.tag_configure("high_conf", foreground="#4CAF50")  # Green
+            transcription_box.tag_configure("med_conf", foreground="#FFA726")   # Orange
+            transcription_box.tag_configure("low_conf", foreground="#F44336")   # Red
+            transcription_box.tag_configure("header", font=("Helvetica", 12, "bold"))
+            transcription_box.tag_configure("separator", foreground="#666666")
+            
+            # Process and display each line with appropriate formatting
+            for line in lines:
+                if "TRANSCRIPTION WITH CONFIDENCE SCORES" in line:
+                    transcription_box.insert(tk.END, line + '\n', "header")
+                elif line.startswith('=') or line.startswith('-'):
+                    transcription_box.insert(tk.END, line + '\n', "separator")
+                elif '(' in line and ')' and 'confidence' in line:
+                    # Extract confidence percentage
+                    conf_start = line.find('(') + 1
+                    conf_end = line.find('%')
+                    if conf_start > 0 and conf_end > 0:
+                        try:
+                            confidence = float(line[conf_start:conf_end])
+                            if confidence >= 90:
+                                transcription_box.insert(tk.END, line + '\n', "high_conf")
+                            elif confidence >= 70:
+                                transcription_box.insert(tk.END, line + '\n', "med_conf")
+                            else:
+                                transcription_box.insert(tk.END, line + '\n', "low_conf")
+                        except ValueError:
+                            transcription_box.insert(tk.END, line + '\n')
+                    else:
+                        transcription_box.insert(tk.END, line + '\n')
+                else:
+                    transcription_box.insert(tk.END, line + '\n')
+            
+            logging.info("Transcription with confidence scores displayed in the UI.")
+        else:
+            # If there was an error, display it and disable rename button
+            transcription_box.delete(1.0, tk.END)
+            transcription_box.insert(tk.END, transcription)
+            rename_transcription_button.config(state=tk.DISABLED)
+            logging.error("Failed to transcribe audio")
+            
+    except Exception as e:
+        logging.error(f"Error during transcription: {e}")
+        transcription_box.delete(1.0, tk.END)
+        transcription_box.insert(tk.END, f"Error during transcription: {str(e)}")
         rename_transcription_button.config(state=tk.DISABLED)
-        logging.error("Failed to transcribe audio")
 
 def rename_audio_file(event=None):
     if not recorder.filepath:
@@ -202,18 +249,22 @@ def analyze_emotions(event=None):
         return
     
     try:
-        # Get the current transcription text
+        # Get the current transcription text (excluding confidence scores and formatting)
         current_text = transcription_box.get("1.0", tk.END).strip()
-        if not current_text:
+        
+        # Extract just the transcribed text, removing confidence scores and formatting
+        clean_text = ""
+        for line in current_text.split('\n'):
+            if not any(x in line for x in ['confidence', '===', '---', 'TRANSCRIPTION']):
+                if not line.startswith('[') and not line.strip() == "":
+                    clean_text += line.strip() + " "
+        
+        if not clean_text:
             logging.warning("No transcription available for emotion analysis.")
             return
             
-        # Remove the "Transcription:" prefix if it exists
-        if current_text.startswith("Transcription:"):
-            current_text = current_text.replace("Transcription:", "", 1).strip()
-            
         # Perform emotion analysis
-        emotion_analysis = emotion_analyzer.analyze(current_text, recorder.filepath)
+        emotion_analysis = emotion_analyzer.analyze(clean_text, recorder.filepath)
         
         # Save emotion analysis
         if save_directory:
