@@ -1,0 +1,5 @@
+Total Words (excluding stop words): 2
+
+Most Frequent Words:
+  • hey: 1 times
+  • hello: 1 times

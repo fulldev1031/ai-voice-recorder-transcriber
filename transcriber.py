@@ -18,6 +18,7 @@ class AudioTranscriber:
             logging.error(f"Error loading Whisper model: {e}")
             self.model = None
         self.transcription_file = None
+        self.segments_with_confidence = []
 
     def transcribe_audio(self, filepath, save_directory=None):
         if not self.model:
@@ -52,18 +53,79 @@ class AudioTranscriber:
             if not segments:
                 return "Error: No speech detected in the audio file.\n"
             
-            transcription_text = "".join(segment['text'] for segment in segments).strip()
-            logging.info("Transcription completed.")
-
-            # Update transcription history
-            self.update_transcription_history(transcription_text)
-
-            return transcription_text
-        
+            # Store raw text and confidence data separately
+            text_output = []
+            confidence_output = []
+            
+            self.segments_with_confidence = []
+            
+            for segment in segments:
+                # Get the text
+                text = segment['text'].strip()
+                text_output.append(text)
+                
+                # Calculate confidence and format timestamp
+                timestamp = f"[{self._format_time(segment['start'])} - {self._format_time(segment['end'])}]"
+                confidence = self._calculate_segment_confidence(segment)
+                confidence_str = f"({confidence:.1%} confidence)"
+                
+                # Store for confidence file
+                self.segments_with_confidence.append({
+                    'timestamp': timestamp,
+                    'confidence': confidence_str,
+                    'text': text
+                })
+                
+                confidence_output.extend([
+                    timestamp,
+                    confidence_str,
+                    ""
+                ])
+            
+            # Join both outputs with a delimiter
+            text_content = " ".join(text_output)
+            confidence_content = "\n".join(confidence_output)
+            
+            # Save both to respective files
+            if save_directory:
+                text_file = os.path.join(save_directory, "output_transcription.txt")
+                conf_file = os.path.join(save_directory, "output_transcription_confidence.txt")
+            else:
+                text_file = "output_transcription.txt"
+                conf_file = "output_transcription_confidence.txt"
+                
+            with open(text_file, 'w', encoding='utf-8') as f:
+                f.write(text_content)
+            with open(conf_file, 'w', encoding='utf-8') as f:
+                f.write(confidence_content)
+                
+            # Update history with raw text
+            self.update_transcription_history(text_content)
+                
+            # Return combined display
+            return f"{text_content}\n\n{confidence_content}"
+            
         except Exception as e:
             error_msg = f"Error during transcription: {str(e)}"
             logging.error(error_msg)
             return f"Error: {error_msg}\n"
+
+    def _calculate_segment_confidence(self, segment):
+        """Calculate confidence score for a segment based on word-level probabilities."""
+        if 'words' in segment and segment['words']:
+            word_probs = []
+            for word in segment['words']:
+                # Handle both possible formats of word confidence
+                prob = word.get('probability', word.get('confidence', 0.0))
+                word_probs.append(prob)
+            return sum(word_probs) / len(word_probs) if word_probs else 0.75
+        return 0.75  # Default confidence if no word-level data available
+
+    def _format_time(self, seconds):
+        """Convert seconds to MM:SS format"""
+        minutes = int(seconds // 60)
+        seconds = int(seconds % 60)
+        return f"{minutes:02d}:{seconds:02d}"
 
     def update_transcription_history(self, text):
         """Appends the transcription to a history file."""
@@ -76,19 +138,9 @@ class AudioTranscriber:
             logging.error(f"Error updating transcription history: {e}")
 
     def save_transcription(self, text, save_directory=None):
-        try:
-            if save_directory:
-                self.transcription_file = os.path.join(save_directory, "output_transcription.txt")
-            else:
-                self.transcription_file = "output_transcription.txt"
-
-            with open(self.transcription_file, "w", encoding="utf-8") as f:
-                f.write(text)
-            logging.info(f"Transcription saved to {self.transcription_file}")
-            return True
-        except Exception as e:
-            logging.error(f"Error saving transcription: {e}")
-            return False
+        """This method is maintained for compatibility but file saving is handled in transcribe_audio"""
+        self.transcription_file = os.path.join(save_directory, "output_transcription.txt") if save_directory else "output_transcription.txt"
+        return True
 
     def rename_transcription(self, new_name):
         if not self.transcription_file or not os.path.exists(self.transcription_file):
@@ -97,11 +149,19 @@ class AudioTranscriber:
         
         directory = os.path.dirname(self.transcription_file)
         new_filepath = os.path.join(directory, f"{new_name}_transcription.txt")
+        new_confidence_filepath = os.path.join(directory, f"{new_name}_confidence.txt")
         
         try:
+            # Move the main transcription file
             shutil.move(self.transcription_file, new_filepath)
             self.transcription_file = new_filepath
-            logging.info(f"Transcription file renamed to {new_filepath}")
+            
+            # Move the confidence file if it exists
+            old_confidence_file = os.path.join(directory, "output_transcription_confidence.txt")
+            if os.path.exists(old_confidence_file):
+                shutil.move(old_confidence_file, new_confidence_filepath)
+                
+            logging.info(f"Transcription files renamed to {new_filepath}")
             return True
         except Exception as e:
             error_msg = f"Error renaming transcription file: {str(e)}"

@@ -286,14 +286,32 @@ def analyze_emotions(event=None):
 def analyze_text_content(event=None):
     """Analyze the transcribed text for key topics and entities."""    
     try:
-        # Get text from transcription text widget
-        text = transcription_box.get("1.0", tk.END).strip()
-        if not text:
+        # Get the path to the transcription file
+        transcription_file = os.path.join(save_directory, "output_transcription.txt") if save_directory else "output_transcription.txt"
+        
+        if not os.path.exists(transcription_file):
+            logging.warning("No transcription file found.")
+            return
+            
+        # Read the transcription file
+        with open(transcription_file, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+            
+        # Extract just the transcribed text, removing timestamps, confidence scores and formatting
+        clean_text = ""
+        for line in content.split('\n'):
+            # Skip lines with metadata and formatting
+            if (not any(x in line.lower() for x in ['confidence', '=', '-', 'transcription']) and 
+                not line.strip().startswith('[') and 
+                line.strip()):
+                clean_text += line.strip() + " "
+                
+        if not clean_text:
             logging.error("No text to analyze")
             return
             
         # Perform analysis
-        analysis_results = text_analyzer.analyze_text(text)
+        analysis_results = text_analyzer.analyze_text(clean_text)
         formatted_results = text_analyzer.format_analysis_results(analysis_results)
         
         # Show results in a new window
@@ -313,6 +331,12 @@ def analyze_text_content(event=None):
         # Insert analysis results
         analysis_text.insert("1.0", formatted_results)
         analysis_text.config(state=tk.DISABLED)
+        
+        # Save analysis results to file
+        analysis_path = os.path.join(save_directory, "text_analysis.txt") if save_directory else "text_analysis.txt"
+        with open(analysis_path, "w", encoding="utf-8") as f:
+            f.write(formatted_results)
+        logging.info(f"Text analysis saved to {analysis_path}")
         
     except Exception as e:
         logging.error(f"Error during text analysis: {e}")
