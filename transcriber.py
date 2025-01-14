@@ -11,19 +11,42 @@ logging.basicConfig(
 
 class AudioTranscriber:
     def __init__(self):
-        try:
-            self.model = whisper.load_model("small")
-            logging.info("Whisper model loaded successfully.")
-        except Exception as e:
-            logging.error(f"Error loading Whisper model: {e}")
-            self.model = None
+        self.model = None
+        self.current_model_size = "small"  # default model
         self.transcription_file = None
         self.segments_with_confidence = []
 
+    def load_model(self, model_size):
+        """Load a specific Whisper model size."""
+        try:
+            if model_size not in ["tiny", "base", "small", "medium", "large"]:
+                raise ValueError(f"Invalid model size: {model_size}")
+            self.model = whisper.load_model(model_size)
+            self.current_model_size = model_size
+            logging.info(f"Loaded Whisper model: {model_size}")
+            return True
+        except Exception as e:
+            logging.error(f"Error loading Whisper model {model_size}: {e}")
+            return False
+
+    def ensure_model_loaded(self):
+        """Ensures the selected model is loaded before transcription."""
+        if self.model is None:
+            return self.load_model(self.current_model_size)
+        # Get the current loaded model size
+        try:
+            current_loaded_size = self.model.model_size
+            if current_loaded_size != self.current_model_size:
+                return self.load_model(self.current_model_size)
+        except AttributeError:
+            # If we can't get the model size, reload to be safe
+            return self.load_model(self.current_model_size)
+        return True
+
     def transcribe_audio(self, filepath, save_directory=None):
-        if not self.model:
-            logging.error("Whisper model is not loaded.")
-            return "Error: Whisper model not loaded.\n"
+        if not self.ensure_model_loaded():
+            logging.error("Failed to load Whisper model.")
+            return "Error: Failed to load Whisper model.\n"
 
         try:
             if not os.path.exists(filepath):
