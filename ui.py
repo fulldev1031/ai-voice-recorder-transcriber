@@ -11,7 +11,7 @@ warnings.filterwarnings(
 )
 
 import tkinter as tk
-from tkinter import filedialog, TclError, ttk
+from tkinter import filedialog, TclError
 from recorder import AudioRecorder
 from transcriber import AudioTranscriber
 from emotion_analyzer import EmotionAnalyzer
@@ -139,24 +139,11 @@ def stop_recording(event=None):
     logging.info("Stop recording button clicked")
 
 def transcribe_audio(event=None):
-    if not recorder.filepath or not os.path.exists(recorder.filepath):
-        transcription_box.config(state=tk.NORMAL)
-        transcription_box.delete(1.0, tk.END)
-        transcription_box.insert(tk.END, "Please record or select an audio file first.\n")
-        transcription_box.config(state=tk.DISABLED)
+    if not recorder.filepath:
+        logging.warning("No audio file available for transcription.")
+        transcription_box.insert(tk.END, "No audio file available for transcription.\n")
         return
-
-    transcription_box.config(state=tk.NORMAL)
-    transcription_box.delete(1.0, tk.END)
-    transcription_box.insert(tk.END, f"Loading {transcriber.current_model_size} model...\n")
-    transcription_box.config(state=tk.DISABLED)
-    root.update()
-
-    transcription_box.config(state=tk.NORMAL)
-    transcription_box.insert(tk.END, "Starting transcription...\n")
-    transcription_box.config(state=tk.DISABLED)
-    root.update()
-
+    
     try:
         # Clear previous transcription
         transcription_box.delete(1.0, tk.END)
@@ -433,58 +420,19 @@ root = TkinterDnD.Tk()
 root.title("Audio Recorder & Emotion Analyzer")
 root.geometry("500x900")
 root.configure(bg="#2b2b2b")
+# root.tk.eval('package require tkdnd')
+# Bind hotkeys
+root.bind("<d>", browse_directory)
+root.bind("<s>", start_recording)
+root.bind("<x>", stop_recording)
+root.bind("<t>", transcribe_audio)
 
-# Create a frame for the model selection
-model_frame = tk.Frame(root, bg="#2b2b2b")
-model_frame.pack(pady=5, padx=10, fill=tk.X)
+root.bind("<r>", rename_audio_file)
+root.bind("<y>", rename_transcription_file)
+root.bind("<e>", analyze_emotions)
 
-# Create and pack the model selection dropdown with styling
-model_label = tk.Label(
-    model_frame,
-    text="Whisper Model:",
-    bg="#2b2b2b",
-    fg="white",
-    font=("Arial", 10)
-)
-model_label.pack(side=tk.LEFT, padx=5)
 
-model_var = tk.StringVar(value="small")
-model_dropdown = ttk.Combobox(
-    model_frame,
-    textvariable=model_var,
-    values=["tiny", "base", "small", "medium", "large"],
-    state="readonly",
-    width=10,
-    style="Custom.TCombobox"
-)
-model_dropdown.pack(side=tk.LEFT, padx=5)
-
-# Create a custom style for the combobox
-style = ttk.Style()
-style.theme_use('default')
-style.configure(
-    "Custom.TCombobox",
-    background="#404040",
-    foreground="white",
-    fieldbackground="#404040",
-    darkcolor="#404040",
-    lightcolor="#404040",
-    arrowcolor="white",
-    selectbackground="#606060",
-    selectforeground="white"
-)
-
-def on_model_change(event):
-    new_model = model_var.get()
-    transcription_box.config(state=tk.NORMAL)
-    transcription_box.delete(1.0, tk.END)
-    transcription_box.insert(tk.END, f"Selected {new_model} model. Model will be loaded when transcription starts.\n")
-    transcription_box.config(state=tk.DISABLED)
-    transcriber.current_model_size = new_model
-
-model_dropdown.bind('<<ComboboxSelected>>', on_model_change)
-
-# Create the record button frame
+# Create frames for better organization
 button_frame = tk.Frame(root, bg="#2b2b2b")
 button_frame.pack(fill=tk.X, padx=10, pady=5)
 
