@@ -9,6 +9,8 @@ transcription.txt
 emotion_analysis.txt
 output_transcription.txt
 history.txt
+text_analysis.txt
+output_transcription_confidence.txt
 
 # Ignore virtual environment directories (if applicable)
 venv/
