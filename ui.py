@@ -1,4 +1,3 @@
-import imp
 import warnings
 import torch
 from tkinter import simpledialog
