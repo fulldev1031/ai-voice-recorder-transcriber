@@ -2,7 +2,7 @@ import imp
 import warnings
 import torch
 from tkinter import simpledialog
-from waveform import plot_waveform
+
 
 # Suppress specific warning
 warnings.filterwarnings(
