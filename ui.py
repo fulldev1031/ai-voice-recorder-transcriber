@@ -1,6 +1,8 @@
+import imp
 import warnings
 import torch
 from tkinter import simpledialog
+from waveform import plot_waveform
 
 # Suppress specific warning
 warnings.filterwarnings(
@@ -21,6 +23,12 @@ import logging
 import warnings
 import os
 from tkinterdnd2 import TkinterDnD, DND_FILES
+import threading
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+import numpy as np
+import pyaudio
+
 # Suppress FP16 warning
 warnings.filterwarnings("ignore", message="FP16 is not supported on CPU; using FP32 instead")
 
@@ -115,12 +123,15 @@ def start_recording(event=None):
     recorder.set_save_directory(save_directory)
     try:
         recorder.start_recording()
+        visualizer.start_recording()
         start_button.config(state=tk.DISABLED)
         stop_button.config(state=tk.NORMAL)
         transcribe_button.config(state=tk.DISABLED)
         rename_audio_button.config(state=tk.DISABLED)
         rename_transcription_button.config(state=tk.DISABLED)
         analyze_button.config(state=tk.DISABLED)  # Disable emotion analysis button
+
+        # threading.Thread(target = plot_waveform).start()
 
         transcription_box.delete(1.0, tk.END)  # Clear previous transcription
         logging.info("Start recording button clicked")
@@ -132,6 +143,7 @@ def start_recording(event=None):
 
 def stop_recording(event=None):
     recorder.stop_recording()
+    visualizer.stop_recording()
     start_button.config(state=tk.NORMAL)
     stop_button.config(state=tk.DISABLED)
     transcribe_button.config(state=tk.NORMAL)
@@ -409,6 +421,76 @@ def query_text(event=None):
     except Exception as e:
         logging.error(f"Error processing query: {e}")
 
+
+class WaveformVisualizer:
+    def __init__(self, frame):
+        self.frame = frame
+        self.is_recording = False
+        
+        # Create matplotlib figure
+        self.fig = Figure(figsize=(4, 4), dpi=100, facecolor='#2b2b2b')
+        self.ax = self.fig.add_subplot(111)
+        self.ax.set_facecolor('#2b2b2b')
+        self.ax.tick_params(axis='x', colors='white')
+        self.ax.tick_params(axis='y', colors='white')
+        
+        # Set up the line plot with matching dimensions
+        self.chunk_size = 1024
+        self.x = np.arange(0, self.chunk_size)
+        self.line, = self.ax.plot(self.x, np.zeros(self.chunk_size), color='#4caf50')
+        
+        # Configure plot appearance
+        self.ax.set_ylim(-32768, 32767)
+        self.ax.set_xlim(0, self.chunk_size)
+        self.ax.grid(True, color='#444444')
+        
+        # Create canvas
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.frame)
+        self.canvas_widget = self.canvas.get_tk_widget()
+        self.canvas_widget.configure(bg='#2b2b2b', highlightthickness=0)
+        self.canvas_widget.pack(fill='both', expand=True, padx=10, pady=5)
+        
+        # Audio stream configuration
+        self.format = pyaudio.paInt16
+        self.channels = 1
+        self.rate = 44100
+        self.p = None
+        self.stream = None
+
+    def start_recording(self):
+        self.is_recording = True
+        threading.Thread(target=self._record_stream, daemon=True).start()
+
+    def stop_recording(self):
+        self.is_recording = False
+        if self.stream:
+            self.stream.stop_stream()
+            self.stream.close()
+        if self.p:
+            self.p.terminate()
+
+    def _record_stream(self):
+        self.p = pyaudio.PyAudio()
+        self.stream = self.p.open(
+            format=self.format,
+            channels=self.channels,
+            rate=self.rate,
+            input=True,
+            frames_per_buffer=self.chunk_size
+        )
+
+        while self.is_recording:
+            try:
+                data = self.stream.read(self.chunk_size)
+                audio_data = np.frombuffer(data, dtype=np.int16)
+                self.line.set_ydata(audio_data)
+                self.canvas.draw_idle()
+            except Exception as e:
+                print(f"Error reading audio stream: {e}")
+                break
+
+        self.stop_recording()
+
 recorder = AudioRecorder()
 transcriber = AudioTranscriber()
 emotion_analyzer = EmotionAnalyzer()
@@ -418,9 +500,10 @@ text_analyzer = TextAnalyzer()
 root = TkinterDnD.Tk()
 
 root.title("Audio Recorder & Emotion Analyzer")
-root.geometry("500x900")
+root.geometry("1000x900")
 root.configure(bg="#2b2b2b")
 # root.tk.eval('package require tkdnd')
+
 # Bind hotkeys
 root.bind("<d>", browse_directory)
 root.bind("<s>", start_recording)
@@ -431,13 +514,20 @@ root.bind("<r>", rename_audio_file)
 root.bind("<y>", rename_transcription_file)
 root.bind("<e>", analyze_emotions)
 
+# Create a new horizontal frame
+main_frame = tk.Frame(root, bg="#2b2b2b")
+main_frame.pack(fill=tk.X, padx=10, pady=5)
 
-# Create frames for better organization
-button_frame = tk.Frame(root, bg="#2b2b2b")
-button_frame.pack(fill=tk.X, padx=10, pady=5)
+button_container = tk.Frame(root, bg="#2b2b2b")
+button_container.pack(in_=main_frame, side=tk.LEFT, fill=tk.Y)
+
+waveform_frame = tk.Frame(root, bg="#2b2b2b")
+waveform_frame.pack(in_=main_frame, side=tk.RIGHT, padx=5)
+
+visualizer = WaveformVisualizer(waveform_frame)
 
 # Create log box
-log_box = tk.Text(button_frame, height=8, width=60, wrap=tk.WORD, state=tk.DISABLED, bg="#333333", fg="white", font=("Helvetica", 10))
+log_box = tk.Text(button_container, height=8, width=60, wrap=tk.WORD, state=tk.DISABLED, bg="#333333", fg="white", font=("Helvetica", 10))
 log_box.pack(pady=5)
 
 # Configure logging to display in the log box
@@ -471,17 +561,17 @@ button_style = {
 }
 
 browse_button = tk.Button(
-    button_frame, text="Browse Directory (D)", command=browse_directory, **button_style
+    button_container, text="Browse Directory (D)", command=browse_directory, **button_style
 )
 browse_button.pack(pady=3)
 
 start_button = tk.Button(
-    button_frame, text="Start Recording (S)", command=start_recording, **button_style
+    button_container, text="Start Recording (S)", command=start_recording, **button_style
 )
 start_button.pack(pady=3)
 
 stop_button = tk.Button(
-    button_frame,
+    button_container,
     text="Stop Recording (X)",
     command=stop_recording,
     state=tk.DISABLED,
@@ -490,7 +580,7 @@ stop_button = tk.Button(
 stop_button.pack(pady=3)
 
 rename_audio_button = tk.Button(
-    button_frame,
+    button_container,
     text="Rename Audio (R)",
     command=rename_audio_file,
     state=tk.DISABLED,
@@ -499,7 +589,7 @@ rename_audio_button = tk.Button(
 rename_audio_button.pack(pady=3)
 
 rename_transcription_button = tk.Button(
-    button_frame,
+    button_container,
     text="Rename Transcription (Y)",
     command=rename_transcription_file,
     state=tk.DISABLED,
@@ -508,25 +598,25 @@ rename_transcription_button = tk.Button(
 rename_transcription_button.pack(pady=3)
 
 transcribe_button = tk.Button(
-    button_frame, text="Transcribe (T)", command=transcribe_audio, state=tk.DISABLED, **button_style
+    button_container, text="Transcribe (T)", command=transcribe_audio, state=tk.DISABLED, **button_style
 )
 transcribe_button.pack(pady=3)
 
 analyze_button = tk.Button(
-    button_frame, text="Analyze Emotions (E)", command=analyze_emotions, state=tk.DISABLED, **button_style
+    button_container, text="Analyze Emotions (E)", command=analyze_emotions, state=tk.DISABLED, **button_style
 )
 analyze_button.pack(pady=3)
 
-analyze_text_button = tk.Button(button_frame, text="Analyze Text", command=analyze_text_content)
+analyze_text_button = tk.Button(button_container, text="Analyze Text", command=analyze_text_content)
 analyze_text_button.pack(side=tk.LEFT, padx=5)
 
-api_key_button = tk.Button(button_frame, text="Set API Key", command=set_api_key)
+api_key_button = tk.Button(button_container, text="Set API Key", command=set_api_key)
 api_key_button.pack(side=tk.LEFT, padx=5)
 
-summarize_button = tk.Button(button_frame, text="Summarize", command=summarize_text)
+summarize_button = tk.Button(button_container, text="Summarize", command=summarize_text)
 summarize_button.pack(side=tk.LEFT, padx=5)
 
-query_button = tk.Button(button_frame, text="Ask Question", command=query_text)
+query_button = tk.Button(button_container, text="Ask Question", command=query_text)
 query_button.pack(side=tk.LEFT, padx=5)
 
 # Create a frame for transcription
