@@ -4,6 +4,7 @@ import threading
 import logging
 import os
 import shutil
+import time
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -17,6 +18,8 @@ class AudioRecorder:
         self.frames = []
         self.recording = False
         self.filepath = None
+        self.recording_start_time = None  
+        self.recording_duration = 0 
     
     def set_save_directory(self, directory):
         self.save_directory = directory
@@ -24,6 +27,7 @@ class AudioRecorder:
 
     def start_recording(self):
         self.frames = []
+        self.recording_start_time = time.time()
         try:
             self.stream = self.audio.open(
                 format=pyaudio.paInt16,
@@ -50,6 +54,7 @@ class AudioRecorder:
         self.thread.join()
         self.stream.stop_stream()
         self.stream.close()
+        self.recording_duration = time.time() - self.recording_start_time
         self.save_recording()
         logging.info("Recording stopped and saved")
 

@@ -1,7 +1,8 @@
 import warnings
 import torch
 from tkinter import simpledialog
-
+from recorder import AudioRecorder
+recorder = AudioRecorder()
 
 # Suppress specific warning
 warnings.filterwarnings(
@@ -150,6 +151,7 @@ def stop_recording(event=None):
     logging.info("Stop recording button clicked")
 
 def transcribe_audio(event=None):
+    global recorder
     if not recorder.filepath:
         logging.warning("No audio file available for transcription.")
         transcription_box.insert(tk.END, "No audio file available for transcription.\n")
@@ -211,6 +213,16 @@ def transcribe_audio(event=None):
                 else:
                     transcription_box.insert(tk.END, line + '\n')
             
+            # Calculate word count
+            word_count = len(transcription.split())
+
+            # Calculate words per second
+            recording_duration = recorder.recording_duration  # Access directly
+            words_per_second = word_count / recording_duration if recording_duration > 0 else 0
+
+            # Display words per second and confidence score
+            transcription_box.insert(tk.END, f"\nWords per second: {words_per_second:.2f}\n")
+                    
             logging.info("Transcription with confidence scores displayed in the UI.")
         else:
             # If there was an error, display it and disable rename button
