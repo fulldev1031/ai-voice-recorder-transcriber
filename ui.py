@@ -771,7 +771,7 @@ analyze_button = tk.Button(
 analyze_button.pack(pady=3)
 
 #Usage Dashboard Button
-dashboard_button = tk.Button(button_container, text="Usage Dashboard", command=open_new_dashboard, bg="#4caf50", fg="white", font=("Helvetica", 12, "bold"), bd=3, relief=tk.RAISED)
+dashboard_button = tk.Button(button_container, text="Usage Dashboard", command=open_new_dashboard, **button_style)
 dashboard_button.pack(pady=3)
 
 analyze_text_button = tk.Button(button_container, text="Analyze Text", command=analyze_text_content)
