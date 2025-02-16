@@ -677,6 +677,38 @@ def open_new_dashboard():
     close_btn = tk.Button(dash_win, text="Close Dashboard", command=dash_win.destroy, bg="#F44336", fg="white", font=("Helvetica", 12, "bold"))
     close_btn.pack(pady=5)
 
+def browse_multiple_files():
+    """Allow users to select multiple audio files for batch processing."""
+    filepaths = filedialog.askopenfilenames(
+        title="Select Audio Files", 
+        filetypes=[("Audio Files", "*.wav;*.mp3;*.m4a;*.flac")]
+    )
+    if filepaths:
+        process_batch_transcription(filepaths)
+
+def process_batch_transcription(filepaths):
+    """Processes multiple audio files and appends transcriptions to batch_transcription.txt."""
+    batch_file = os.path.join(save_directory, "batch_transcription.txt")
+    try:
+        with open(batch_file, "a", encoding="utf-8") as f:
+            for filepath in filepaths:
+                base_name = os.path.basename(filepath)
+                transcription_box.insert(tk.END, f"Processing {base_name}...\n")
+                root.update()
+                
+                transcription = transcriber.transcribe_audio(filepath, save_directory)
+                if transcription.startswith("Error:"):
+                    transcription_box.insert(tk.END, f"Skipped {base_name} (Error)\n")
+                    continue
+                
+                # Write a clear separator and the transcription for this file
+                f.write(f"---- Transcription: {base_name} ----\n")
+                f.write(transcription + "\n\n")
+                transcription_box.insert(tk.END, f"Processed {base_name}\n")
+        transcription_box.insert(tk.END, f"\nBatch transcription saved to: {batch_file}\n")
+    except Exception as e:
+        messagebox.showerror("Error", f"Batch transcription failed: {e}")
+
 # Create a new horizontal frame
 main_frame = tk.Frame(root, bg="#2b2b2b")
 main_frame.pack(fill=tk.X, padx=10, pady=5)
@@ -698,18 +730,6 @@ log_handler = TextBoxLogHandler(log_box)
 log_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
 logging.getLogger().addHandler(log_handler)
 logging.getLogger().setLevel(logging.DEBUG)
-drop_zone = DropZone(
-    root,
-    text="Drag and drop audio files here\nor use the buttons below",
-    bg="#333333",
-    fg="white",
-    font=("Helvetica", 12),
-    width=40,
-    height=3
-)
-drop_zone.pack(fill=tk.X, padx=10, pady=5)
-root.tk.eval(f'tkdnd::drop_target register {drop_zone.winfo_pathname(drop_zone.winfo_id())} *')
-root.tk.eval(f'tkdnd::drop_target register {root.winfo_pathname(root.winfo_id())} *')
 
 button_style = {
     "font": ("Helvetica", 12, "bold"),
@@ -727,6 +747,17 @@ browse_button = tk.Button(
     button_container, text="Browse Directory (D)", command=browse_directory, **button_style
 )
 browse_button.pack(pady=3)
+
+# Batch Transcription Button
+batch_button = tk.Button(
+    button_container, 
+    text="Batch Transcription", 
+    command=browse_multiple_files, 
+    bg="#FFA500", bd=3, relief=tk.RAISED, width=20,
+    height= 1, font=("Helvetica", 12, "bold"), fg="white"
+    
+)
+batch_button.pack(pady=3)
 
 start_button = tk.Button(
     button_container, text="Start Recording (S)", command=start_recording, **button_style

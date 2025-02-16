@@ -21,10 +21,14 @@ class AudioTranscriber:
         self.segments_with_confidence = []
 
     def transcribe_audio(self, filepath, save_directory=None):
+        """
+        Processes a single audio file and returns a combined transcription string.
+        This method maintains the existing features (confidence calculation, history update, file saving)
+        and is used by the batch processing UI code to process multiple files one by one.
+        """
         if not self.model:
             logging.error("Whisper model is not loaded.")
             return "Error: Whisper model not loaded.\n"
-
         try:
             if not os.path.exists(filepath):
                 error_msg = f"Audio file not found at: {filepath}"
@@ -34,77 +38,65 @@ class AudioTranscriber:
             # Load and preprocess audio file using librosa
             logging.info(f"Loading audio file: {filepath}")
             audio_data, sr = librosa.load(filepath, sr=16000, mono=True)
-            
-            # Ensure audio data is float32
             audio_data = audio_data.astype(np.float32)
             logging.info(f"Audio loaded successfully. Shape: {audio_data.shape}, dtype: {audio_data.dtype}")
 
             # Transcribe with word timestamps
             logging.info("Starting transcription...")
-            result = self.model.transcribe(
-                audio_data, 
-                language='en',
-                word_timestamps=True
-            )
-            
-            # Process segments
+            result = self.model.transcribe(audio_data, language='en', word_timestamps=True)
+
+            # Process segments from the transcription result
             segments = result.get('segments', [])
-            
             if not segments:
                 return "Error: No speech detected in the audio file.\n"
-            
-            # Store raw text and confidence data separately
+
+            # Prepare outputs: raw text and confidence details
             text_output = []
             confidence_output = []
-            
             self.segments_with_confidence = []
-            
+
             for segment in segments:
-                # Get the text
+                # Extract and store text
                 text = segment['text'].strip()
                 text_output.append(text)
-                
-                # Calculate confidence and format timestamp
+
+                # Format timestamp and calculate confidence
                 timestamp = f"[{self._format_time(segment['start'])} - {self._format_time(segment['end'])}]"
                 confidence = self._calculate_segment_confidence(segment)
                 confidence_str = f"({confidence:.1%} confidence)"
-                
-                # Store for confidence file
+
+                # Save segment details for potential further use
                 self.segments_with_confidence.append({
                     'timestamp': timestamp,
                     'confidence': confidence_str,
                     'text': text
                 })
-                
-                confidence_output.extend([
-                    timestamp,
-                    confidence_str,
-                    ""
-                ])
-            
-            # Join both outputs with a delimiter
+
+                confidence_output.extend([timestamp, confidence_str, ""])
+
+            # Combine outputs into strings
             text_content = " ".join(text_output)
             confidence_content = "\n".join(confidence_output)
-            
-            # Save both to respective files
+
+            # Save transcription and confidence details to files
             if save_directory:
                 text_file = os.path.join(save_directory, "output_transcription.txt")
                 conf_file = os.path.join(save_directory, "output_transcription_confidence.txt")
             else:
                 text_file = "output_transcription.txt"
                 conf_file = "output_transcription_confidence.txt"
-                
+
             with open(text_file, 'w', encoding='utf-8') as f:
                 f.write(text_content)
             with open(conf_file, 'w', encoding='utf-8') as f:
                 f.write(confidence_content)
-                
-            # Update history with raw text
+
+            # Update history with the transcription text
             self.update_transcription_history(text_content)
-                
-            # Return combined display
+
+            # Return the combined transcription and confidence information for display
             return f"{text_content}\n\n{confidence_content}"
-            
+
         except Exception as e:
             error_msg = f"Error during transcription: {str(e)}"
             logging.error(error_msg)
