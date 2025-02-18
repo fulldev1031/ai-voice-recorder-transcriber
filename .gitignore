@@ -12,6 +12,7 @@ history.txt
 text_analysis.txt
 output_transcription_confidence.txt
 batch_transcription.txt
+annotated_transcription_7fcec539.txt
 
 # Ignore virtual environment directories (if applicable)
 venv/
