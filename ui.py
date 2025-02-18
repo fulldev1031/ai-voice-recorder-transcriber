@@ -2,6 +2,7 @@ import warnings
 import torch
 from tkinter import simpledialog
 from recorder import AudioRecorder
+from tkinter import colorchooser
 recorder = AudioRecorder()
 
 # Suppress specific warning
@@ -73,7 +74,20 @@ class DropZone(tk.Label):
         if file_path.startswith('{') and file_path.endswith('}'):
             file_path = file_path[1:-1]
         handle_dropped_file(file_path)
+def update_font_size(new_size):
+    """Update font size for the transcription box"""
+    current_font = transcription_box.cget("font")
+    font_family = current_font[0] if isinstance(current_font, tuple) else "Helvetica"
+    new_font = (font_family, new_size)
+    transcription_box.config(font=new_font)
+    logging.info(f"Font size updated to {new_size}")
 
+def choose_color():
+    """Open color picker and set text color"""
+    color = colorchooser.askcolor(title="Choose Text Color")
+    if color[1]:  # User selected a color
+        transcription_box.config(fg=color[1])
+        logging.info(f"Text color changed to {color[1]}")
 def handle_dropped_file(file_path):
     if not os.path.exists(file_path):
         error_msg = f"File not found: {file_path}"
@@ -530,7 +544,51 @@ def open_annotation_window():
     # Label for transcription display
     transcription_label = tk.Label(frame, text="Transcription", bg="#2b2b2b", fg="white", font=("Helvetica", 12, "bold"))
     transcription_label.pack(anchor="w")
+    control_frame = tk.Frame(transcription_frame, bg="#2b2b2b")
+    control_frame.pack(fill=tk.X, pady=5)
 
+    font_size_label = tk.Label(control_frame, text="Font Size:", bg="#2b2b2b", fg="white")
+    font_size_label.pack(side=tk.LEFT, padx=5)
+
+    font_sizes = [8, 10, 11, 12, 14, 16, 18, 20]
+    font_size_var = tk.IntVar(value=11)  # Default size matches initial setting
+    font_size_dropdown = tk.OptionMenu(control_frame, font_size_var, *font_sizes, command=update_font_size)
+    font_size_dropdown.config(bg="#4caf50", fg="white", activebackground="#45a049")
+    font_size_dropdown.pack(side=tk.LEFT, padx=5)
+
+    color_button = tk.Button(
+        control_frame, 
+        text="Choose Color", 
+        command=choose_color,
+        bg="#4caf50",
+        fg="white",
+        activebackground="#45a049"
+    )
+    color_button.pack(side=tk.LEFT, padx=5)
+
+    # Adding tooltips for better UX
+    def create_tooltip(widget, text):
+        tooltip = tk.Toplevel(widget)
+        tooltip.withdraw()
+        tooltip.wm_overrideredirect(True)
+        
+        label = tk.Label(tooltip, text=text, bg="#ffffe0", relief="solid", borderwidth=1)
+        label.pack()
+        
+        def enter(event):
+            x = widget.winfo_rootx() + widget.winfo_width() + 5
+            y = widget.winfo_rooty()
+            tooltip.geometry(f"+{x}+{y}")
+            tooltip.deiconify()
+        
+        def leave(event):
+            tooltip.withdraw()
+        
+        widget.bind("<Enter>", enter)
+        widget.bind("<Leave>", leave)
+
+    create_tooltip(font_size_dropdown, "Adjust font size for the transcription text")
+    create_tooltip(color_button, "Change base text color for the transcription")
     # Read-only text widget to display the current transcription
     transcription_display = tk.Text(frame, height=10, wrap=tk.WORD)
     transcription_display.pack(fill=tk.BOTH, expand=True, pady=(0,10))

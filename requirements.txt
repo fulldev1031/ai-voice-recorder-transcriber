@@ -1,4 +1,4 @@
-tkinter
+tk
 openai-whisper
 logging
 numpy<2
@@ -15,4 +15,5 @@ python-dotenv==1.0.0
 nltk==3.8.1
 spacy==3.7.2
 tkinterdnd2
-
+matplotlib
+seaborn
