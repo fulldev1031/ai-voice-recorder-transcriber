@@ -767,6 +767,20 @@ waveform_frame.pack(in_=main_frame, side=tk.RIGHT, padx=5)
 
 visualizer = WaveformVisualizer(waveform_frame)
 
+# Export Transcription Button
+export_button = tk.Button(
+    waveform_frame,
+    text="Export Transcription",
+    command=export_transcription,
+    bg="#008CBA",
+    fg="white",
+    font=("Helvetica", 12, "bold"),
+    bd=3, width=20,
+    height= 1,
+    relief=tk.RAISED
+)
+export_button.pack(pady=3)
+
 # Create log box
 log_box = tk.Text(button_container, height=8, width=60, wrap=tk.WORD, state=tk.DISABLED, bg="#333333", fg="white", font=("Helvetica", 10))
 log_box.pack(pady=5)
