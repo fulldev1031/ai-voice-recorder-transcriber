@@ -1,5 +1,6 @@
 import warnings
 import torch
+import threading
 from tkinter import simpledialog
 from recorder import AudioRecorder
 from tkinter import colorchooser
@@ -20,6 +21,7 @@ from transcriber import AudioTranscriber
 from emotion_analyzer import EmotionAnalyzer
 from text_processor import TextProcessor
 from text_analyzer import TextAnalyzer
+from transformers import MarianMTModel, MarianTokenizer
 import logging
 import warnings
 import os
@@ -523,6 +525,7 @@ class WaveformVisualizer:
 
         self.stop_recording()
 
+
 recorder = AudioRecorder()
 transcriber = AudioTranscriber()
 emotion_analyzer = EmotionAnalyzer()
@@ -530,6 +533,128 @@ text_processor = TextProcessor()  # Will automatically load API key from .env if
 
 text_analyzer = TextAnalyzer()
 root = TkinterDnD.Tk()
+
+# translation code start
+
+def check_model_exists(src_lang, tgt_lang):
+    model_name = f"Helsinki-NLP/opus-mt-{src_lang}-{tgt_lang}"
+    try:
+        tokenizer = MarianTokenizer.from_pretrained(model_name)
+        model = MarianMTModel.from_pretrained(model_name)
+        print(f"Model {model_name} loaded successfully!")
+        return model, tokenizer
+    except Exception as e:
+        print(f"Model {model_name} not found: {e}")
+        return None, None
+
+
+# Function to translate text using Hugging Face MarianMT
+def translate_text_huggingface(text, src_lang, tgt_lang):
+    model_name = f"Helsinki-NLP/opus-mt-{src_lang}-{tgt_lang}"
+
+    print(f"Loading model: {model_name}")
+
+    try:
+        # Load the tokenizer and model
+        tokenizer = MarianTokenizer.from_pretrained(model_name)
+        print("Tokenizer loaded successfully.")
+
+        model = MarianMTModel.from_pretrained(model_name)
+        print("Model loaded successfully.")
+
+        # Tokenize input text
+        inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True)
+
+        # Generate translation with a timeout safeguard
+        print("Generating translation...")
+        with torch.no_grad():
+            translated = model.generate(**inputs, max_length=512, num_return_sequences=1)
+
+        # Decode the translated text
+        translated_text = tokenizer.decode(translated[0], skip_special_tokens=True)
+
+        print("Translation successful.")
+        return translated_text
+
+    except Exception as e:
+        print(f"Translation failed: {e}")
+        return f"Translation failed: {e}"
+
+
+# Function to translate the history.txt file
+def translate_file(src_lang, tgt_lang):
+    save_directory = os.getcwd()
+    history_file = os.path.join(save_directory, "history.txt")
+    translated_file = os.path.join(save_directory, f"history_{tgt_lang}.txt")
+
+    if not os.path.exists(history_file):
+        messagebox.showerror("Error", "No history file found. Please transcribe some audio first.")
+        return
+
+    try:
+        # Read content from history.txt
+        with open(history_file, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        if not content.strip():
+            messagebox.showerror("Error", "The history.txt file is empty.")
+            return
+
+        # Translate the content
+        translated_text = translate_text_huggingface(content, src_lang, tgt_lang)
+
+        # Save the translated text
+        with open(translated_file, "w", encoding="utf-8") as f:
+            f.write(translated_text)
+
+        messagebox.showinfo("Success", f"Translated file saved as history_{tgt_lang}.txt")
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Translation failed: {e}")
+
+
+# Asynchronous wrapper to prevent GUI from freezing
+def translate_async(src_lang, tgt_lang):
+    threading.Thread(target=lambda: translate_file(src_lang, tgt_lang), daemon=True).start()
+
+
+# Function to open the translation dashboard
+def open_translation_dashboard():
+    save_directory = os.getcwd()
+    history_file = os.path.join(save_directory, "history.txt")
+
+    if not os.path.exists(history_file):
+        messagebox.showerror("Error", "No history file found. Please transcribe some audio first.")
+        return
+
+    # Create a new Tkinter window
+    dashboard = tk.Toplevel()
+    dashboard.title("Translate history.txt")
+    dashboard.geometry("300x200")
+
+    tk.Label(dashboard, text="Translate history.txt to:").pack(pady=10)
+
+    # Dropdown for source and target languages
+    tk.Label(dashboard, text="Source Language:").pack()
+    src_lang_var = tk.StringVar(dashboard)
+    src_lang_var.set("en")  # Default source language
+    src_lang_menu = tk.OptionMenu(dashboard, src_lang_var, "en", "fr", "es", "de", "it", "ru", "zh")
+    src_lang_menu.pack(pady=5)
+
+    tk.Label(dashboard, text="Target Language:").pack()
+    tgt_lang_var = tk.StringVar(dashboard)
+    tgt_lang_var.set("fr")  # Default target language
+    tgt_lang_menu = tk.OptionMenu(dashboard, tgt_lang_var, "en", "fr", "es", "de", "it", "ru", "zh")
+    tgt_lang_menu.pack(pady=5)
+
+    # Button to translate
+    translate_btn = tk.Button(dashboard, text="Translate", 
+                               command=lambda: translate_async(src_lang_var.get(), tgt_lang_var.get()))
+    translate_btn.pack(pady=10)
+
+    dashboard.mainloop()
+#translation code end
+
 
 def open_annotation_window():
     # Create a new top-level window for annotations
@@ -874,6 +999,10 @@ summarize_button.pack(side=tk.LEFT, padx=5)
 
 query_button = tk.Button(button_container, text="Ask Question", command=query_text)
 query_button.pack(side=tk.LEFT, padx=5)
+
+# translate button
+translation_btn = tk.Button(button_container, text="Translate", command=open_translation_dashboard)
+translation_btn.pack(side=tk.LEFT, padx=5)
 
 # Annotate Transcription Button
 annotate_button = tk.Button(button_container, text="Annotate Transcription", command=open_annotation_window, bg="#4caf50", fg="white", font=("Helvetica", 9, "bold"), bd=3, relief=tk.RAISED)
