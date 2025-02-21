@@ -36,7 +36,8 @@ import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+import json
+import csv
 # Suppress FP16 warning
 warnings.filterwarnings("ignore", message="FP16 is not supported on CPU; using FP32 instead")
 
@@ -843,6 +844,51 @@ def process_batch_transcription(filepaths):
     except Exception as e:
         messagebox.showerror("Error", f"Batch transcription failed: {e}")
 
+def export_transcription():
+    """
+    Exports the current transcription segments (from transcriber.segments_with_confidence)
+    to JSON or CSV with time stamps.
+    """
+    # Check if transcription data is available
+    if not hasattr(transcriber, "segments_with_confidence") or not transcriber.segments_with_confidence:
+        messagebox.showwarning("Export Error", "No transcription data available to export.")
+        return
+
+    # Ask the user to select format (Yes = JSON, No = CSV)
+    fmt_choice = messagebox.askquestion("Select Format", "Export as JSON? (Select 'No' for CSV)")
+    export_format = "json" if fmt_choice.lower() == "yes" else "csv"
+    file_extension = ".json" if export_format == "json" else ".csv"
+
+    # Open a file save dialog
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=file_extension,
+        filetypes=[("JSON Files", "*.json")] if export_format == "json" else [("CSV Files", "*.csv")],
+        title="Save Transcription Export"
+    )
+    if not file_path:
+        return  # User cancelled
+
+    try:
+        data = transcriber.segments_with_confidence  # List of dictionaries with transcription details
+        if export_format == "json":
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4)
+        else:
+            with open(file_path, "w", newline="", encoding="utf-8") as csvfile:
+                fieldnames = ["timestamp", "text", "confidence"]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                for segment in data:
+                    writer.writerow({
+                        "timestamp": segment.get("timestamp", ""),
+                        "text": segment.get("text", ""),
+                        "confidence": segment.get("confidence", "")
+                    })
+        messagebox.showinfo("Export Success", f"Transcription exported successfully to {file_path}")
+    except Exception as e:
+        messagebox.showerror("Export Error", f"Failed to export transcription: {e}")
+
+
 # Create a new horizontal frame
 main_frame = tk.Frame(root, bg="#2b2b2b")
 main_frame.pack(fill=tk.X, padx=10, pady=5)
@@ -854,6 +900,20 @@ waveform_frame = tk.Frame(root, bg="#2b2b2b")
 waveform_frame.pack(in_=main_frame, side=tk.RIGHT, padx=5)
 
 visualizer = WaveformVisualizer(waveform_frame)
+
+# Export Transcription Button
+export_button = tk.Button(
+    waveform_frame,
+    text="Export Transcription",
+    command=export_transcription,
+    bg="#008CBA",
+    fg="white",
+    font=("Helvetica", 12, "bold"),
+    bd=3, width=20,
+    height= 1,
+    relief=tk.RAISED
+)
+export_button.pack(pady=3)
 
 # Create log box
 log_box = tk.Text(button_container, height=8, width=60, wrap=tk.WORD, state=tk.DISABLED, bg="#333333", fg="white", font=("Helvetica", 10))
