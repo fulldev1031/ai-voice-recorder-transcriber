@@ -43,7 +43,74 @@ warnings.filterwarnings("ignore", message="FP16 is not supported on CPU; using F
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
+dark_theme = {
+    'bg': '#2b2b2b',
+    'fg': 'white',
+    'button_bg': '#4caf50',
+    'button_fg': 'white',
+    'text_bg': '#333333',
+    'text_fg': 'white',
+    'plot_bg': '#2b2b2b',
+    'plot_fg': 'white',
+    'waveform_color': '#4caf50',
+    'axis_color': 'white',
+    'grid_color': '#444444'
+}
 
+light_theme = {
+    'bg': '#f0f0f0',
+    'fg': 'black',
+    'button_bg': '#4caf50',
+    'button_fg': 'white',
+    'text_bg': 'white',
+    'text_fg': 'black',
+    'plot_bg': 'white',
+    'plot_fg': 'black',
+    'waveform_color': '#4caf50',
+    'axis_color': 'black',
+    'grid_color': '#dddddd'
+}
+
+current_theme = dark_theme
+
+def toggle_theme():
+    global current_theme
+    current_theme = light_theme if current_theme == dark_theme else dark_theme
+    apply_theme(current_theme)
+
+def apply_theme(theme):
+    # Update root and main frames
+    root.configure(bg=theme['bg'])
+    main_frame.configure(bg=theme['bg'])
+    button_container.configure(bg=theme['bg'])
+    waveform_frame.configure(bg=theme['bg'])
+    transcription_frame.configure(bg=theme['bg'])
+    text_container.configure(bg=theme['bg'])
+    
+    # Update all buttons in button_container
+    for widget in button_container.winfo_children():
+        if isinstance(widget, tk.Button):
+            widget.config(bg=theme['button_bg'], fg=theme['button_fg'])
+    
+    # Update text boxes
+    log_box.config(bg=theme['text_bg'], fg=theme['text_fg'])
+    transcription_box.config(bg=theme['text_bg'], fg=theme['text_fg'])
+    
+    # Update labels
+    transcription_label.config(bg=theme['bg'], fg=theme['fg'])
+    hotkey_label.config(bg=theme['bg'], fg=theme['fg'])
+    
+    # Update control_frame and its children
+    control_frame.configure(bg=theme['bg'])
+    for child in control_frame.winfo_children():
+        if isinstance(child, tk.Label):
+            child.config(bg=theme['bg'], fg=theme['fg'])
+    
+    # Update waveform visualizer
+    visualizer.update_theme(theme)
+    
+    # Update seaborn style
+    sns.set_style("darkgrid" if theme == dark_theme else "whitegrid")
 class TextBoxLogHandler(logging.Handler):
     def __init__(self, text_widget):
         super().__init__()
@@ -522,6 +589,17 @@ class WaveformVisualizer:
                 break
 
         self.stop_recording()
+    def update_theme(self, theme):
+        self.fig.set_facecolor(theme['plot_bg'])
+        self.ax.set_facecolor(theme['plot_bg'])
+        self.line.set_color(theme['waveform_color'])
+        self.ax.tick_params(axis='x', colors=theme['axis_color'])
+        self.ax.tick_params(axis='y', colors=theme['axis_color'])
+        self.ax.grid(True, color=theme['grid_color'])
+        self.ax.xaxis.label.set_color(theme['axis_color'])
+        self.ax.yaxis.label.set_color(theme['axis_color'])
+        self.ax.title.set_color(theme['axis_color'])
+        self.canvas.draw()
 
 recorder = AudioRecorder()
 transcriber = AudioTranscriber()
@@ -544,8 +622,6 @@ def open_annotation_window():
     # Label for transcription display
     transcription_label = tk.Label(frame, text="Transcription", bg="#2b2b2b", fg="white", font=("Helvetica", 12, "bold"))
     transcription_label.pack(anchor="w")
-    control_frame = tk.Frame(transcription_frame, bg="#2b2b2b")
-    control_frame.pack(fill=tk.X, pady=5)
 
     font_size_label = tk.Label(control_frame, text="Font Size:", bg="#2b2b2b", fg="white")
     font_size_label.pack(side=tk.LEFT, padx=5)
@@ -800,7 +876,13 @@ button_style = {
     "width": 20,
     "height": 1, 
 }
-
+theme_button = tk.Button(
+    button_container, 
+    text="Toggle Theme", 
+    command=toggle_theme, 
+    **button_style
+)
+theme_button.pack(pady=3)
 browse_button = tk.Button(
     button_container, text="Browse Directory (D)", command=browse_directory, **button_style
 )
@@ -882,6 +964,8 @@ annotate_button.pack(pady=3)
 # Create a frame for transcription
 transcription_frame = tk.Frame(root, bg="#2b2b2b")
 transcription_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+control_frame = tk.Frame(transcription_frame, bg="#2b2b2b")
+control_frame.pack(fill=tk.X, pady=5)
 
 # Transcription Label
 transcription_label = tk.Label(
