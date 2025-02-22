@@ -74,6 +74,17 @@ class WaveformVisualizer:
                 break
 
         self.stop_recording()
+    def update_theme(self, theme):
+        self.fig.set_facecolor(theme['plot_bg'])
+        self.ax.set_facecolor(theme['plot_bg'])
+        self.line.set_color(theme['waveform_color'])
+        self.ax.tick_params(axis='x', colors=theme['axis_color'])
+        self.ax.tick_params(axis='y', colors=theme['axis_color'])
+        self.ax.grid(True, color=theme['grid_color'])
+        self.ax.xaxis.label.set_color(theme['axis_color'])
+        self.ax.yaxis.label.set_color(theme['axis_color'])
+        self.ax.title.set_color(theme['axis_color'])
+        self.canvas.draw()
     def _create_canvas(self):
         self.fig = Figure(figsize=(4, 4), dpi=100)
         self.ax = self.fig.add_subplot(111)

@@ -4,7 +4,7 @@ import logging
 import shutil
 import librosa
 import numpy as np
-from helpers import format_time
+from ..utils.helpers import format_time
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"

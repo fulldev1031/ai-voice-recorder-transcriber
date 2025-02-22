@@ -47,7 +47,6 @@ pip install pyaudio whisper
    Run the application with :
 
 ```bash
-   cd app
    python ui.py
 ```
 
