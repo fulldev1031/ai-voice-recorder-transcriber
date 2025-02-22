@@ -39,6 +39,33 @@ warnings.filterwarnings("ignore", message="FP16 is not supported on CPU; using F
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
+dark_theme = {
+    'bg': '#2b2b2b',
+    'fg': 'white',
+    'button_bg': '#4caf50',
+    'button_fg': 'white',
+    'text_bg': '#333333',
+    'text_fg': 'white',
+    'plot_bg': '#2b2b2b',
+    'plot_fg': 'white',
+    'waveform_color': '#4caf50',
+    'axis_color': 'white',
+    'grid_color': '#444444'
+}
+
+light_theme = {
+    'bg': '#f0f0f0',
+    'fg': 'black',
+    'button_bg': '#4caf50',
+    'button_fg': 'white',
+    'text_bg': 'white',
+    'text_fg': 'black',
+    'plot_bg': 'white',
+    'plot_fg': 'black',
+    'waveform_color': '#4caf50',
+    'axis_color': 'black',
+    'grid_color': '#dddddd'
+}
 
 dark_theme = {
     'bg': '#2b2b2b',
@@ -68,6 +95,7 @@ light_theme = {
     'grid_color': '#dddddd'
 }
 current_theme = dark_theme
+
 def apply_theme(theme):
     # Update root and main frames
     root.configure(bg=theme['bg'])
@@ -101,10 +129,12 @@ def apply_theme(theme):
     
     # Update seaborn style
     sns.set_style("darkgrid" if theme == dark_theme else "whitegrid")
+
 def toggle_theme():
     global current_theme
     current_theme = light_theme if current_theme == dark_theme else dark_theme
     apply_theme(current_theme)
+
 class TextBoxLogHandler(logging.Handler):
     def __init__(self, text_widget):
         super().__init__()
@@ -521,8 +551,6 @@ def open_annotation_window():
     # Label for transcription display
     transcription_label = tk.Label(frame, text="Transcription", bg="#2b2b2b", fg="white", font=("Helvetica", 12, "bold"))
     transcription_label.pack(anchor="w")
-    control_frame = tk.Frame(transcription_frame, bg="#2b2b2b")
-    control_frame.pack(fill=tk.X, pady=5)
 
     font_size_label = tk.Label(control_frame, text="Font Size:", bg="#2b2b2b", fg="white")
     font_size_label.pack(side=tk.LEFT, padx=5)
@@ -743,6 +771,51 @@ def process_batch_transcription(filepaths):
         transcription_box.insert(tk.END, f"\nBatch transcription saved to: {batch_file}\n")
     except Exception as e:
         messagebox.showerror("Error", f"Batch transcription failed: {e}")
+
+def export_transcription():
+    """
+    Exports the current transcription segments (from transcriber.segments_with_confidence)
+    to JSON or CSV with time stamps.
+    """
+    # Check if transcription data is available
+    if not hasattr(transcriber, "segments_with_confidence") or not transcriber.segments_with_confidence:
+        messagebox.showwarning("Export Error", "No transcription data available to export.")
+        return
+
+    # Ask the user to select format (Yes = JSON, No = CSV)
+    fmt_choice = messagebox.askquestion("Select Format", "Export as JSON? (Select 'No' for CSV)")
+    export_format = "json" if fmt_choice.lower() == "yes" else "csv"
+    file_extension = ".json" if export_format == "json" else ".csv"
+
+    # Open a file save dialog
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=file_extension,
+        filetypes=[("JSON Files", "*.json")] if export_format == "json" else [("CSV Files", "*.csv")],
+        title="Save Transcription Export"
+    )
+    if not file_path:
+        return  # User cancelled
+
+    try:
+        data = transcriber.segments_with_confidence  # List of dictionaries with transcription details
+        if export_format == "json":
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4)
+        else:
+            with open(file_path, "w", newline="", encoding="utf-8") as csvfile:
+                fieldnames = ["timestamp", "text", "confidence"]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                for segment in data:
+                    writer.writerow({
+                        "timestamp": segment.get("timestamp", ""),
+                        "text": segment.get("text", ""),
+                        "confidence": segment.get("confidence", "")
+                    })
+        messagebox.showinfo("Export Success", f"Transcription exported successfully to {file_path}")
+    except Exception as e:
+        messagebox.showerror("Export Error", f"Failed to export transcription: {e}")
+
 
 # Create a new horizontal frame
 main_frame = tk.Frame(root, bg="#2b2b2b")
