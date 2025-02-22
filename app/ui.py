@@ -1,7 +1,7 @@
 import warnings
-import torch
 from tkinter import simpledialog
-from recorder import AudioRecorder
+from app.core.recorder import AudioRecorder
+from app.gui.components.waveform import WaveformVisualizer
 from tkinter import colorchooser
 recorder = AudioRecorder()
 
@@ -14,21 +14,17 @@ warnings.filterwarnings(
 )
 
 import tkinter as tk
-from tkinter import filedialog, TclError, messagebox
-from recorder import AudioRecorder
-from transcriber import AudioTranscriber
-from emotion_analyzer import EmotionAnalyzer
-from text_processor import TextProcessor
-from text_analyzer import TextAnalyzer
+from tkinter import filedialog, messagebox
+from app.core.recorder import AudioRecorder
+from app.core.transcriber import AudioTranscriber
+from app.core.emotion_analyzer import EmotionAnalyzer
+from app.core.text_processor import TextProcessor
+from app.core.text_analyzer import TextAnalyzer
 import logging
 import warnings
 import os
-from tkinterdnd2 import TkinterDnD, DND_FILES
-import threading
+from tkinterdnd2 import TkinterDnD
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
-import numpy as np
-import pyaudio
 import hashlib
 import collections
 import datetime
@@ -59,21 +55,7 @@ class TextBoxLogHandler(logging.Handler):
 # Set default save directory to the current working directory
 save_directory = os.getcwd()
 logging.info(f"Default save directory set to: {save_directory}")
-class DropZone(tk.Label):
-    def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs)
-        self.configure(relief="groove", borderwidth=2)
-        
-        # Enable drag and drop for files
-        self.drop_target_register(DND_FILES)
-        self.dnd_bind('<<Drop>>', self.handle_drop)
-        
-    def handle_drop(self, event):
-        # Get the dropped file path and handle it
-        file_path = event.data
-        if file_path.startswith('{') and file_path.endswith('}'):
-            file_path = file_path[1:-1]
-        handle_dropped_file(file_path)
+
 def update_font_size(new_size):
     """Update font size for the transcription box"""
     current_font = transcription_box.cget("font")
@@ -452,76 +434,6 @@ def query_text(event=None):
         
     except Exception as e:
         logging.error(f"Error processing query: {e}")
-
-
-class WaveformVisualizer:
-    def __init__(self, frame):
-        self.frame = frame
-        self.is_recording = False
-        
-        # Create matplotlib figure
-        self.fig = Figure(figsize=(4, 4), dpi=100, facecolor='#2b2b2b')
-        self.ax = self.fig.add_subplot(111)
-        self.ax.set_facecolor('#2b2b2b')
-        self.ax.tick_params(axis='x', colors='white')
-        self.ax.tick_params(axis='y', colors='white')
-        
-        # Set up the line plot with matching dimensions
-        self.chunk_size = 1024
-        self.x = np.arange(0, self.chunk_size)
-        self.line, = self.ax.plot(self.x, np.zeros(self.chunk_size), color='#4caf50')
-        
-        # Configure plot appearance
-        self.ax.set_ylim(-32768, 32767)
-        self.ax.set_xlim(0, self.chunk_size)
-        self.ax.grid(True, color='#444444')
-        
-        # Create canvas
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.frame)
-        self.canvas_widget = self.canvas.get_tk_widget()
-        self.canvas_widget.configure(bg='#2b2b2b', highlightthickness=0)
-        self.canvas_widget.pack(fill='both', expand=True, padx=10, pady=5)
-        
-        # Audio stream configuration
-        self.format = pyaudio.paInt16
-        self.channels = 1
-        self.rate = 44100
-        self.p = None
-        self.stream = None
-
-    def start_recording(self):
-        self.is_recording = True
-        threading.Thread(target=self._record_stream, daemon=True).start()
-
-    def stop_recording(self):
-        self.is_recording = False
-        if self.stream:
-            self.stream.stop_stream()
-            self.stream.close()
-        if self.p:
-            self.p.terminate()
-
-    def _record_stream(self):
-        self.p = pyaudio.PyAudio()
-        self.stream = self.p.open(
-            format=self.format,
-            channels=self.channels,
-            rate=self.rate,
-            input=True,
-            frames_per_buffer=self.chunk_size
-        )
-
-        while self.is_recording:
-            try:
-                data = self.stream.read(self.chunk_size)
-                audio_data = np.frombuffer(data, dtype=np.int16)
-                self.line.set_ydata(audio_data)
-                self.canvas.draw_idle()
-            except Exception as e:
-                print(f"Error reading audio stream: {e}")
-                break
-
-        self.stop_recording()
 
 recorder = AudioRecorder()
 transcriber = AudioTranscriber()
