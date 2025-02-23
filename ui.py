@@ -46,7 +46,6 @@ current_theme = styles['dark_theme']
 # Set default save directory to the current working directory
 save_directory = os.getcwd()
 logging.info(f"Default save directory set to: {save_directory}")
-
 root = TkinterDnD.Tk()
 # Create a new horizontal frame
 main_frame = tk.Frame(root, bg="#2b2b2b")
