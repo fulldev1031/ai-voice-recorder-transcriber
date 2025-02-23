@@ -1,14 +1,12 @@
 import csv
 import json
 from tkinter import filedialog, messagebox
-from ...utils.get_ui_components import get_ui_components
-def export_transcription():
+def export_transcription(transcriber):
     """
     Exports the current transcription segments (from transcriber.segments_with_confidence)
     to JSON or CSV with time stamps.
     """
     # Check if transcription data is available
-    transcriber=get_ui_components()
     if not hasattr(transcriber, "segments_with_confidence") or not transcriber.segments_with_confidence:
         messagebox.showwarning("Export Error", "No transcription data available to export.")
         return
