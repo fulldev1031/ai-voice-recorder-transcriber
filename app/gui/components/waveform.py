@@ -10,7 +10,6 @@ class WaveformVisualizer:
     def __init__(self, frame):
         self.parent = frame
         self.is_recording = False
-        self._create_canvas()
         # Create matplotlib figure
         self.fig = Figure(figsize=(4, 4), dpi=100, facecolor='#2b2b2b')
         self.ax = self.fig.add_subplot(111)
@@ -85,9 +84,3 @@ class WaveformVisualizer:
         self.ax.yaxis.label.set_color(theme['axis_color'])
         self.ax.title.set_color(theme['axis_color'])
         self.canvas.draw()
-    def _create_canvas(self):
-        self.fig = Figure(figsize=(4, 4), dpi=100)
-        self.ax = self.fig.add_subplot(111)
-        self.line, = self.ax.plot(np.arange(0, 1024), np.zeros(1024))
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.parent)
-        self.canvas.get_tk_widget().pack()

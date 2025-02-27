@@ -133,15 +133,13 @@ Recording={"save_directory":save_directory,"recorder":recorder,"visualizer":visu
 Analysis={'recorder':recorder,'emotion_analyzer':emotion_analyzer,'text_analyzer':text_analyzer,'text_processor':text_processor,'save_directory':save_directory,'transcription_box':transcription_box,'root':root}
 Files={"transcriber":transcriber,"transcription_box":transcription_box,"analyze_button":analyze_button,"root":root,"transcription_box":transcription_box,"save_directory":save_directory}
 # Bind hotkeys
-root.bind("<d>", lambda:browse_directory(Files))
-root.bind("<s>", lambda:start_recording(Recording))
-root.bind("<x>", lambda:stop_recording(Recording))
-root.bind("<t>", lambda:transcribe_audio(Recording))
-
-root.bind("<r>", lambda:rename_audio_file(Recording))
-root.bind("<y>", lambda:rename_transcription_file(Files))
-root.bind("<e>", lambda:analyze_emotions(Analysis))
-
+root.bind("<d>", lambda event: browse_directory(Files))
+root.bind("<s>", lambda event: start_recording(Recording))
+root.bind("<x>", lambda event: stop_recording(Recording))
+root.bind("<t>", lambda event: transcribe_audio(Recording))
+root.bind("<r>", lambda event: rename_audio_file(Recording))
+root.bind("<y>", lambda event: rename_transcription_file(Files))
+root.bind("<e>", lambda event: analyze_emotions(Analysis))
 # Export Transcription Button
 export_button = tk.Button(
     waveform_frame,
