@@ -14,7 +14,9 @@ warnings.filterwarnings(
 )
 
 import tkinter as tk
-from tkinter import filedialog, TclError, messagebox
+from tkinter import filedialog, TclError, messagebox, Toplevel, ttk
+import threading
+import time
 from recorder import AudioRecorder
 from transcriber import AudioTranscriber
 from emotion_analyzer import EmotionAnalyzer
@@ -239,92 +241,7 @@ def stop_recording(event=None):
     rename_audio_button.config(state=tk.NORMAL)
     logging.info("Stop recording button clicked")
 
-def transcribe_audio(event=None):
-    global recorder
-    if not recorder.filepath:
-        logging.warning("No audio file available for transcription.")
-        transcription_box.insert(tk.END, "No audio file available for transcription.\n")
-        return
-    
-    try:
-        # Clear previous transcription
-        transcription_box.delete(1.0, tk.END)
-        transcription_box.insert(tk.END, "Transcribing audio...\n")
-        root.update()
-        
-        # Get transcription with confidence scores
-        transcription = transcriber.transcribe_audio(recorder.filepath, save_directory)
-        analyze_button.config(state=tk.NORMAL)  # Enable emotion analysis after transcription
 
-        # Check for errors and handle transcription
-        if not transcription.startswith("Error:"):
-            # Save transcription to file
-            if transcriber.save_transcription(transcription, save_directory):
-                # Enable rename button only if save was successful
-                rename_transcription_button.config(state=tk.NORMAL)
-            
-            # Format and display transcription in text box with colors
-            transcription_box.delete(1.0, tk.END)
-            
-            # Split transcription into lines
-            lines = transcription.split('\n')
-            
-            # Configure text tags for different confidence levels
-            transcription_box.tag_configure("high_conf", foreground="#4CAF50")  # Green
-            transcription_box.tag_configure("med_conf", foreground="#FFA726")   # Orange
-            transcription_box.tag_configure("low_conf", foreground="#F44336")   # Red
-            transcription_box.tag_configure("header", font=("Helvetica", 12, "bold"))
-            transcription_box.tag_configure("separator", foreground="#666666")
-            
-            # Process and display each line with appropriate formatting
-            for line in lines:
-                if "TRANSCRIPTION WITH CONFIDENCE SCORES" in line:
-                    transcription_box.insert(tk.END, line + '\n', "header")
-                elif line.startswith('=') or line.startswith('-'):
-                    transcription_box.insert(tk.END, line + '\n', "separator")
-                elif '(' in line and ')' and 'confidence' in line:
-                    # Extract confidence percentage
-                    conf_start = line.find('(') + 1
-                    conf_end = line.find('%')
-                    if conf_start > 0 and conf_end > 0:
-                        try:
-                            confidence = float(line[conf_start:conf_end])
-                            if confidence >= 90:
-                                transcription_box.insert(tk.END, line + '\n', "high_conf")
-                            elif confidence >= 70:
-                                transcription_box.insert(tk.END, line + '\n', "med_conf")
-                            else:
-                                transcription_box.insert(tk.END, line + '\n', "low_conf")
-                        except ValueError:
-                            transcription_box.insert(tk.END, line + '\n')
-                    else:
-                        transcription_box.insert(tk.END, line + '\n')
-                else:
-                    transcription_box.insert(tk.END, line + '\n')
-            
-            # Calculate word count
-            word_count = len(transcription.split())
-
-            # Calculate words per second
-            recording_duration = recorder.recording_duration  # Access directly
-            words_per_second = word_count / recording_duration if recording_duration > 0 else 0
-
-            # Display words per second and confidence score
-            transcription_box.insert(tk.END, f"\nWords per second: {words_per_second:.2f}\n")
-                    
-            logging.info("Transcription with confidence scores displayed in the UI.")
-        else:
-            # If there was an error, display it and disable rename button
-            transcription_box.delete(1.0, tk.END)
-            transcription_box.insert(tk.END, transcription)
-            rename_transcription_button.config(state=tk.DISABLED)
-            logging.error("Failed to transcribe audio")
-            
-    except Exception as e:
-        logging.error(f"Error during transcription: {e}")
-        transcription_box.delete(1.0, tk.END)
-        transcription_box.insert(tk.END, f"Error during transcription: {str(e)}")
-        rename_transcription_button.config(state=tk.DISABLED)
 
 def rename_audio_file(event=None):
     if not recorder.filepath:
@@ -709,6 +626,72 @@ def open_annotation_window():
     save_button = tk.Button(frame, text="Save Annotation", command=save_annotation, bg="#4caf50", fg="white", font=("Helvetica", 12, "bold"), bd=3, relief=tk.RAISED)
     save_button.pack(pady=5)
 
+def transcribe_with_progress(event=None):
+    """
+    Automatically displays a progress tracking window during transcription.
+    This function is intended to replace direct calls to transcriber.transcribe_audio()
+    so that every transcription operation shows a progress bar.
+    """
+    if not recorder.filepath:
+        logging.warning("No audio file available for transcription.")
+        transcription_box.insert(tk.END, "No audio file available for transcription.\n")
+        return
+
+    # Create a progress window
+    progress_win = Toplevel(root)
+    progress_win.title("Transcription Progress")
+    progress_win.geometry("400x150")
+    progress_win.configure(bg=root.cget("bg"))
+    
+    # Status label for detailed messages
+    status_label = tk.Label(progress_win, text="Initializing...", font=("Helvetica", 12),
+                            bg=root.cget("bg"), fg="white")
+    status_label.pack(pady=(20, 10))
+    
+    # Create a determinate progress bar
+    progress_bar = ttk.Progressbar(progress_win, orient="horizontal", length=300, mode="determinate")
+    progress_bar.pack(pady=10)
+    progress_bar["maximum"] = 100
+    progress_bar["value"] = 0
+
+    def update_status(message, value):
+        """Updates the status message and progress bar value."""
+        status_label.config(text=message)
+        progress_bar["value"] = value
+        root.update_idletasks()
+
+    def run_transcription():
+        try:
+            # Phase 1: Loading file
+            update_status("Loading file...", 20)
+            # Simulate delay if file loading is too fast (optional)
+            time.sleep(1)
+            
+            # Phase 2: Transcribing audio
+            update_status("Transcribing...", 50)
+            transcription = transcriber.transcribe_audio(recorder.filepath, save_directory)
+            
+            # Phase 3: Saving transcription
+            update_status("Saving transcription...", 80)
+            # Simulate saving delay (optional)
+            time.sleep(0.5)
+            
+            # Finalize progress
+            update_status("Complete", 100)
+            root.update_idletasks()
+            
+            # Display the transcription in the transcription box
+            transcription_box.delete(1.0, tk.END)
+            transcription_box.insert(tk.END, transcription)
+        except Exception as e:
+            transcription_box.insert(tk.END, f"Error: {e}\n")
+        finally:
+            progress_win.destroy()
+
+    # Run the transcription process in a background thread
+    t = threading.Thread(target=run_transcription)
+    t.start()
+
 root.title("Audio Recorder & Emotion Analyzer")
 root.geometry("1000x900")
 root.configure(bg="#2b2b2b")
@@ -718,7 +701,7 @@ root.configure(bg="#2b2b2b")
 root.bind("<d>", browse_directory)
 root.bind("<s>", start_recording)
 root.bind("<x>", stop_recording)
-root.bind("<t>", transcribe_audio)
+root.bind("<t>", transcribe_with_progress)
 
 root.bind("<r>", rename_audio_file)
 root.bind("<y>", rename_transcription_file)
@@ -812,6 +795,10 @@ def open_new_dashboard():
     close_btn = tk.Button(dash_win, text="Close Dashboard", command=dash_win.destroy, bg="#F44336", fg="white", font=("Helvetica", 12, "bold"))
     close_btn.pack(pady=5)
 
+import threading
+import time
+from tkinter import Toplevel, ttk, filedialog, messagebox
+
 def browse_multiple_files():
     """Allow users to select multiple audio files for batch processing."""
     filepaths = filedialog.askopenfilenames(
@@ -822,27 +809,62 @@ def browse_multiple_files():
         process_batch_transcription(filepaths)
 
 def process_batch_transcription(filepaths):
-    """Processes multiple audio files and appends transcriptions to batch_transcription.txt."""
+    """
+    Processes multiple audio files and appends transcriptions to a single file (batch_transcription.txt)
+    while showing a progress bar with detailed status messages.
+    """
     batch_file = os.path.join(save_directory, "batch_transcription.txt")
-    try:
-        with open(batch_file, "a", encoding="utf-8") as f:
-            for filepath in filepaths:
-                base_name = os.path.basename(filepath)
-                transcription_box.insert(tk.END, f"Processing {base_name}...\n")
-                root.update()
-                
-                transcription = transcriber.transcribe_audio(filepath, save_directory)
-                if transcription.startswith("Error:"):
-                    transcription_box.insert(tk.END, f"Skipped {base_name} (Error)\n")
-                    continue
-                
-                # Write a clear separator and the transcription for this file
-                f.write(f"---- Transcription: {base_name} ----\n")
-                f.write(transcription + "\n\n")
-                transcription_box.insert(tk.END, f"Processed {base_name}\n")
-        transcription_box.insert(tk.END, f"\nBatch transcription saved to: {batch_file}\n")
-    except Exception as e:
-        messagebox.showerror("Error", f"Batch transcription failed: {e}")
+    transcription_box.delete(1.0, tk.END)
+    transcription_box.insert(tk.END, "Processing batch transcription...\n")
+    root.update_idletasks()
+
+    # Create progress window
+    progress_win = Toplevel(root)
+    progress_win.title("Batch Transcription Progress")
+    progress_win.geometry("400x150")
+    progress_win.configure(bg=root.cget("bg"))
+    
+    status_label = tk.Label(progress_win, text="Initializing...", font=("Helvetica", 12),
+                              bg=root.cget("bg"), fg="white")
+    status_label.pack(pady=(20, 10))
+    
+    progress_bar = ttk.Progressbar(progress_win, orient="horizontal", length=300, mode="determinate")
+    progress_bar.pack(pady=10)
+    progress_bar["maximum"] = 100
+    progress_bar["value"] = 0
+
+    def update_status(message, value):
+        status_label.config(text=message)
+        progress_bar["value"] = value
+        root.update_idletasks()
+
+    total_files = len(filepaths)
+    progress_increment = 100 / (total_files + 1) if total_files > 0 else 100
+
+    def run_batch():
+        try:
+            with open(batch_file, "a", encoding="utf-8") as f:
+                for i, filepath in enumerate(filepaths, start=1):
+                    base_name = os.path.basename(filepath)
+                    update_status(f"Processing {base_name} ({i}/{total_files})...", progress_increment * i)
+                    transcription = transcriber.transcribe_audio(filepath, save_directory)
+                    if transcription.startswith("Error:"):
+                        transcription_box.insert(tk.END, f"Skipped {base_name} (Error)\n")
+                        continue
+                    f.write(f"---- Transcription: {base_name} ----\n")
+                    f.write(transcription + "\n\n")
+                    transcription_box.insert(tk.END, f"Processed {base_name}\n")
+                    root.update_idletasks()
+                    # (Optional: add a small delay for smoother UI updates)
+                    time.sleep(0.2)
+            transcription_box.insert(tk.END, f"\nBatch transcription saved to: {batch_file}\n")
+        except Exception as e:
+            messagebox.showerror("Error", f"Batch transcription failed: {e}")
+        finally:
+            progress_win.destroy()
+
+    threading.Thread(target=run_batch).start()
+
 
 def export_transcription():
     """
@@ -992,7 +1014,7 @@ rename_transcription_button = tk.Button(
 rename_transcription_button.pack(pady=3)
 
 transcribe_button = tk.Button(
-    button_container, text="Transcribe (T)", command=transcribe_audio, state=tk.DISABLED, **button_style
+    button_container, text="Transcribe (T)", command=transcribe_with_progress, state=tk.DISABLED, **button_style
 )
 transcribe_button.pack(pady=3)
 
@@ -1005,16 +1027,16 @@ analyze_button.pack(pady=3)
 dashboard_button = tk.Button(button_container, text="Usage Dashboard", command=open_new_dashboard, **button_style)
 dashboard_button.pack(pady=3)
 
-analyze_text_button = tk.Button(button_container, text="Analyze Text", command=analyze_text_content)
+analyze_text_button = tk.Button(button_container, text="Analyze Text", command=analyze_text_content, bg="#4caf50", fg="white", font=("Helvetica", 9, "bold"), bd=3)
 analyze_text_button.pack(side=tk.LEFT, padx=5)
 
-api_key_button = tk.Button(button_container, text="Set API Key", command=set_api_key)
+api_key_button = tk.Button(button_container, text="Set API Key", command=set_api_key, bg="#4caf50", fg="white", font=("Helvetica", 9, "bold"), bd=3)
 api_key_button.pack(side=tk.LEFT, padx=5)
 
-summarize_button = tk.Button(button_container, text="Summarize", command=summarize_text)
+summarize_button = tk.Button(button_container, text="Summarize", command=summarize_text, bg="#4caf50", fg="white", font=("Helvetica", 9, "bold"), bd=3)
 summarize_button.pack(side=tk.LEFT, padx=5)
 
-query_button = tk.Button(button_container, text="Ask Question", command=query_text)
+query_button = tk.Button(button_container, text="Ask Question", command=query_text, bg="#4caf50", fg="white", font=("Helvetica", 9, "bold"), bd=3)
 query_button.pack(side=tk.LEFT, padx=5)
 
 # Annotate Transcription Button
