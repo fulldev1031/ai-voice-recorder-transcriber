@@ -19,7 +19,7 @@ from app.core.emotion_analyzer import EmotionAnalyzer
 from app.core.text_processor import TextProcessor
 from app.core.text_analyzer import TextAnalyzer
 from app.gui.handlers.export import export_transcription
-from app.gui.handlers.audio import start_recording, stop_recording, transcribe_audio, rename_audio_file
+from app.gui.handlers.audio import start_recording, stop_recording, transcribe_with_progress, rename_audio_file
 from app.utils.config import get_styles
 from app.gui.handlers.analysis import analyze_emotions, analyze_text_content, set_api_key, summarize_text, query_text
 from app.gui.handlers.theme import toggle_theme
@@ -75,7 +75,7 @@ text_container.pack(fill=tk.BOTH, expand=True)
 scrollbar = tk.Scrollbar(text_container)
 scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 transcribe_button = tk.Button(
-    button_container, text="Transcribe (T)", command=lambda:transcribe_audio(Recording), state=tk.DISABLED, **styles['button_style']
+    button_container, text="Transcribe (T)", command=lambda:transcribe_with_progress(Recording), state=tk.DISABLED, **styles['button_style']
 )
 analyze_button = tk.Button(
     button_container, text="Analyze Emotions (E)", command=lambda:analyze_emotions(Analysis), state=tk.DISABLED, **styles['button_style']
@@ -131,12 +131,12 @@ root.configure(bg="#2b2b2b")
 # root.tk.eval('package require tkdnd')
 Recording={"save_directory":save_directory,"recorder":recorder,"visualizer":visualizer,"start_button":start_button,"stop_button":stop_button,"transcribe_button":transcribe_button,"rename_audio_button":rename_audio_button,"rename_transcription_button":rename_transcription_button,"analyze_button":analyze_button,"transcription_box":transcription_box,"log_box":log_box,'root':root,'transcriber':transcriber}
 Analysis={'recorder':recorder,'emotion_analyzer':emotion_analyzer,'text_analyzer':text_analyzer,'text_processor':text_processor,'save_directory':save_directory,'transcription_box':transcription_box,'root':root}
-Files={"transcriber":transcriber,"transcription_box":transcription_box,"analyze_button":analyze_button,"root":root,"transcription_box":transcription_box,"save_directory":save_directory}
+Files={"transcriber":transcriber,"transcription_box":transcription_box,"analyze_button":analyze_button,"root":root,"save_directory":save_directory}
 # Bind hotkeys
 root.bind("<d>", lambda event: browse_directory(Files))
 root.bind("<s>", lambda event: start_recording(Recording))
 root.bind("<x>", lambda event: stop_recording(Recording))
-root.bind("<t>", lambda event: transcribe_audio(Recording))
+root.bind("<t>", lambda event: transcribe_with_progress(Recording))
 root.bind("<r>", lambda event: rename_audio_file(Recording))
 root.bind("<y>", lambda event: rename_transcription_file(Files))
 root.bind("<e>", lambda event: analyze_emotions(Analysis))
@@ -204,16 +204,16 @@ batch_button.pack(pady=3)
 dashboard_button = tk.Button(button_container, text="Usage Dashboard", command=lambda:open_new_dashboard(save_directory,root), **styles['button_style'])
 dashboard_button.pack(pady=3)
 
-analyze_text_button = tk.Button(button_container, text="Analyze Text", command=lambda:analyze_text_content(Analysis))
+analyze_text_button = tk.Button(button_container, text="Analyze Text", command=lambda:analyze_text_content(Analysis), bg="#4caf50", fg="white", font=("Helvetica", 9, "bold"), bd=3)
 analyze_text_button.pack(side=tk.LEFT, padx=5)
 
-api_key_button = tk.Button(button_container, text="Set API Key", command=lambda:set_api_key(Analysis))
+api_key_button = tk.Button(button_container, text="Set API Key", command=lambda:set_api_key(Analysis), bg="#4caf50", fg="white", font=("Helvetica", 9, "bold"), bd=3)
 api_key_button.pack(side=tk.LEFT, padx=5)
 
-summarize_button = tk.Button(button_container, text="Summarize", command=lambda:summarize_text(Analysis))
+summarize_button = tk.Button(button_container, text="Summarize", command=lambda:summarize_text(Analysis), bg="#4caf50", fg="white", font=("Helvetica", 9, "bold"), bd=3)
 summarize_button.pack(side=tk.LEFT, padx=5)
 
-query_button = tk.Button(button_container, text="Ask Question", command=lambda:query_text(Analysis))
+query_button = tk.Button(button_container, text="Ask Question", command=lambda:query_text(Analysis), bg="#4caf50", fg="white", font=("Helvetica", 9, "bold"), bd=3)
 query_button.pack(side=tk.LEFT, padx=5)
 Window={"root":root,"save_directory":save_directory,"transcription_box":transcription_box,"control_frame":control_frame}
 # Annotate Transcription Button
