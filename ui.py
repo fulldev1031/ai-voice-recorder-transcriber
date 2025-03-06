@@ -1,5 +1,6 @@
 import warnings
 import torch
+import threading
 from tkinter import simpledialog
 from recorder import AudioRecorder
 from tkinter import colorchooser
@@ -22,6 +23,7 @@ from transcriber import AudioTranscriber
 from emotion_analyzer import EmotionAnalyzer
 from text_processor import TextProcessor
 from text_analyzer import TextAnalyzer
+from transformers import MarianMTModel, MarianTokenizer , AutoTokenizer, AutoModelForSeq2SeqLM
 import logging
 import warnings
 import os
@@ -519,6 +521,7 @@ class WaveformVisualizer:
         self.ax.title.set_color(theme['axis_color'])
         self.canvas.draw()
 
+
 recorder = AudioRecorder()
 transcriber = AudioTranscriber()
 emotion_analyzer = EmotionAnalyzer()
@@ -526,6 +529,286 @@ text_processor = TextProcessor()  # Will automatically load API key from .env if
 
 text_analyzer = TextAnalyzer()
 root = TkinterDnD.Tk()
+
+# translation code start-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+MODEL_NAME = "facebook/nllb-200-distilled-600M"  # Faster version of NLLB
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+try:
+    print(f"Loading NLLB-200 model ({MODEL_NAME}) on {device}...")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME).to(device)
+    print("Model loaded successfully!")
+except Exception as e:
+    print(f"Failed to load NLLB model: {e}")
+    model, tokenizer = None, None
+
+#  Dictionary of Supported Languages (Including Indian Languages)
+LANGUAGES = {
+    "English": "eng_Latn",
+    "French": "fra_Latn",
+    "Spanish": "spa_Latn",
+    "German": "deu_Latn",
+    "Italian": "ita_Latn",
+    "Russian": "rus_Cyrl",
+    "Chinese": "zho_Hans",
+    # Indian Languages
+    "Hindi": "hin_Deva",
+    "Bengali": "ben_Beng",
+    "Tamil": "tam_Taml",
+    "Telugu": "tel_Telu",
+    "Marathi": "mar_Deva",
+    "Gujarati": "guj_Gujr",
+    "Punjabi": "pan_Guru",
+    "Malayalam": "mal_Mlym",
+    "Kannada": "kan_Knda",
+    "Odia": "ory_Orya",
+    "Urdu": "urd_Arab",
+}
+
+#Optimized translation function
+def translate_text_nllb(text, src_lang, tgt_lang):
+    if model is None or tokenizer is None:
+        return "Error: Model not loaded."
+
+    try:
+        # Convert language names to model-specific codes
+        src_lang_code = LANGUAGES.get(src_lang, "eng_Latn")
+        tgt_lang_code = LANGUAGES.get(tgt_lang, "hin_Deva")  # Default to Hindi
+
+        print(f"Translating from {src_lang} ({src_lang_code}) → {tgt_lang} ({tgt_lang_code})")
+
+        #  Set source language in tokenizer
+        tokenizer.src_lang = src_lang_code
+
+        # Encode input text
+        inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True).to(device)
+
+        #  Get `forced_bos_token_id` correctly
+        tgt_lang_id = tokenizer.convert_tokens_to_ids(tgt_lang_code)
+
+        if tgt_lang_id is None or tgt_lang_id == tokenizer.unk_token_id:
+            print(f"Error: Invalid target language ID for {tgt_lang_code}.")
+            return "Translation failed: Invalid target language."
+
+        # Generate translation
+        with torch.no_grad():
+            translated_tokens = model.generate(**inputs, forced_bos_token_id=tgt_lang_id)
+
+        translated_text = tokenizer.decode(translated_tokens[0], skip_special_tokens=True)
+        return translated_text
+
+    except Exception as e:
+        print(f"Translation failed: {e}")
+        return f"Translation failed: {e}"
+
+#  Translate the output_transcription.txt file
+def translate_file(src_lang, tgt_lang):
+    save_directory = os.getcwd()
+    transcription_file = os.path.join(save_directory, "output_transcription.txt")
+    translated_file = os.path.join(save_directory, f"output_transcription_{tgt_lang}.txt")
+
+    if not os.path.exists(transcription_file):
+        messagebox.showerror("Error", "No output_transcription file found. Please transcribe some audio first.")
+        return
+
+    try:
+        with open(transcription_file, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        if not content.strip():
+            messagebox.showerror("Error", "The output_transcription.txt file is empty.")
+            return
+
+        translated_text = translate_text_nllb(content, src_lang, tgt_lang)
+
+        with open(translated_file, "w", encoding="utf-8") as f:
+            f.write(translated_text)
+
+        messagebox.showinfo("Success", f"Translated file saved as output_transcription_{tgt_lang}.txt")
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Translation failed: {e}")
+
+#  Asynchronous wrapper to prevent GUI from freezing
+def translate_async(src_lang, tgt_lang):
+    threading.Thread(target=lambda: translate_file(src_lang, tgt_lang), daemon=True).start()
+
+#  GUI for Translation
+def open_translation_dashboard():
+    save_directory = os.getcwd()
+    transcription_file = os.path.join(save_directory, "output_transcription.txt")
+
+    if not os.path.exists(transcription_file):
+        messagebox.showerror("Error", "No transcription file found. Please transcribe some audio first.")
+        return
+
+    # Create a new Tkinter window
+    dashboard = tk.Toplevel()
+    dashboard.title("Translate output_transcription.txt")
+    dashboard.geometry("300x300")
+
+    tk.Label(dashboard, text="Translate output_transcription.txt to:").pack(pady=10)
+
+    # Dropdown for source and target languages
+    tk.Label(dashboard, text="Source Language:").pack()
+    src_lang_var = tk.StringVar(dashboard)
+    src_lang_var.set("English")  # Default source language
+    src_lang_menu = tk.OptionMenu(dashboard, src_lang_var, *LANGUAGES.keys())
+    src_lang_menu.pack(pady=5)
+
+    tk.Label(dashboard, text="Target Language:").pack()
+    tgt_lang_var = tk.StringVar(dashboard)
+    tgt_lang_var.set("Hindi")  # Default target language
+    tgt_lang_menu = tk.OptionMenu(dashboard, tgt_lang_var, *LANGUAGES.keys())
+    tgt_lang_menu.pack(pady=5)
+
+    # Button to translate
+    translate_btn = tk.Button(dashboard, text="Translate", 
+                               command=lambda: translate_async(src_lang_var.get(), tgt_lang_var.get()))
+    translate_btn.pack(pady=10)
+
+    dashboard.mainloop()
+MODEL_NAME = "facebook/nllb-200-distilled-600M"  # Faster version of NLLB
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+try:
+    print(f"Loading NLLB-200 model ({MODEL_NAME}) on {device}...")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME).to(device)
+    print("Model loaded successfully!")
+except Exception as e:
+    print(f"Failed to load NLLB model: {e}")
+    model, tokenizer = None, None
+
+#  Dictionary of Supported Languages (Including Indian Languages)
+LANGUAGES = {
+    "English": "eng_Latn",
+    "French": "fra_Latn",
+    "Spanish": "spa_Latn",
+    "German": "deu_Latn",
+    "Italian": "ita_Latn",
+    "Russian": "rus_Cyrl",
+    "Chinese": "zho_Hans",
+    # Indian Languages
+    "Hindi": "hin_Deva",
+    "Bengali": "ben_Beng",
+    "Tamil": "tam_Taml",
+    "Telugu": "tel_Telu",
+    "Marathi": "mar_Deva",
+    "Gujarati": "guj_Gujr",
+    "Punjabi": "pan_Guru",
+    "Malayalam": "mal_Mlym",
+    "Kannada": "kan_Knda",
+    "Odia": "ory_Orya",
+    "Urdu": "urd_Arab",
+}
+
+#  Optimized translation function
+def translate_text_nllb(text, src_lang, tgt_lang):
+    if model is None or tokenizer is None:
+        return "Error: Model not loaded."
+
+    try:
+        # Convert language names to model-specific codes
+        src_lang_code = LANGUAGES.get(src_lang, "eng_Latn")
+        tgt_lang_code = LANGUAGES.get(tgt_lang, "hin_Deva")  # Default to Hindi
+
+        print(f"Translating from {src_lang} ({src_lang_code}) → {tgt_lang} ({tgt_lang_code})")
+
+        # Set source language in tokenizer
+        tokenizer.src_lang = src_lang_code
+
+        # Encode input text
+        inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True).to(device)
+
+        #  Get `forced_bos_token_id` correctly
+        tgt_lang_id = tokenizer.convert_tokens_to_ids(tgt_lang_code)
+
+        if tgt_lang_id is None or tgt_lang_id == tokenizer.unk_token_id:
+            print(f"Error: Invalid target language ID for {tgt_lang_code}.")
+            return "Translation failed: Invalid target language."
+
+        # Generate translation
+        with torch.no_grad():
+            translated_tokens = model.generate(**inputs, forced_bos_token_id=tgt_lang_id)
+
+        translated_text = tokenizer.decode(translated_tokens[0], skip_special_tokens=True)
+        return translated_text
+
+    except Exception as e:
+        print(f"Translation failed: {e}")
+        return f"Translation failed: {e}"
+
+# Translate the output_transcription.txt file
+def translate_file(src_lang, tgt_lang):
+    save_directory = os.getcwd()
+    transcription_file = os.path.join(save_directory, "output_transcription.txt")
+    translated_file = os.path.join(save_directory, f"output_transcription_{tgt_lang}.txt")
+
+    if not os.path.exists(transcription_file):
+        messagebox.showerror("Error", "No output_transcription file found. Please transcribe some audio first.")
+        return
+
+    try:
+        with open(transcription_file, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        if not content.strip():
+            messagebox.showerror("Error", "The output_transcription.txt file is empty.")
+            return
+
+        translated_text = translate_text_nllb(content, src_lang, tgt_lang)
+
+        with open(translated_file, "w", encoding="utf-8") as f:
+            f.write(translated_text)
+
+        messagebox.showinfo("Success", f"Translated file saved as output_transcription_{tgt_lang}.txt")
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Translation failed: {e}")
+
+# Asynchronous wrapper to prevent GUI from freezing
+def translate_async(src_lang, tgt_lang):
+    threading.Thread(target=lambda: translate_file(src_lang, tgt_lang), daemon=True).start()
+
+#  GUI for Translation
+def open_translation_dashboard():
+    save_directory = os.getcwd()
+    transcription_file = os.path.join(save_directory, "output_transcription.txt")
+
+    if not os.path.exists(transcription_file):
+        messagebox.showerror("Error", "No transcription file found. Please transcribe some audio first.")
+        return
+
+    # Create a new Tkinter window
+    dashboard = tk.Toplevel()
+    dashboard.title("Translate output_transcription.txt")
+    dashboard.geometry("300x300")
+
+    tk.Label(dashboard, text="Translate output_transcription.txt to:").pack(pady=10)
+
+    # Dropdown for source and target languages
+    tk.Label(dashboard, text="Source Language:").pack()
+    src_lang_var = tk.StringVar(dashboard)
+    src_lang_var.set("English")  # Default source language
+    src_lang_menu = tk.OptionMenu(dashboard, src_lang_var, *LANGUAGES.keys())
+    src_lang_menu.pack(pady=5)
+
+    tk.Label(dashboard, text="Target Language:").pack()
+    tgt_lang_var = tk.StringVar(dashboard)
+    tgt_lang_var.set("Hindi")  # Default target language
+    tgt_lang_menu = tk.OptionMenu(dashboard, tgt_lang_var, *LANGUAGES.keys())
+    tgt_lang_menu.pack(pady=5)
+
+    # Button to translate
+    translate_btn = tk.Button(dashboard, text="Translate", 
+                               command=lambda: translate_async(src_lang_var.get(), tgt_lang_var.get()))
+    translate_btn.pack(pady=10)
+
+    dashboard.mainloop()
+
+#translation code end
 
 def open_annotation_window():
     # Create a new top-level window for annotations
@@ -1038,6 +1321,10 @@ summarize_button.pack(side=tk.LEFT, padx=5)
 
 query_button = tk.Button(button_container, text="Ask Question", command=query_text, bg="#4caf50", fg="white", font=("Helvetica", 9, "bold"), bd=3)
 query_button.pack(side=tk.LEFT, padx=5)
+
+# translate button
+translation_btn = tk.Button(button_container, text="Translate", command=open_translation_dashboard)
+translation_btn.pack(side=tk.LEFT, padx=5)
 
 # Annotate Transcription Button
 annotate_button = tk.Button(button_container, text="Annotate Transcription", command=open_annotation_window, bg="#4caf50", fg="white", font=("Helvetica", 9, "bold"), bd=3, relief=tk.RAISED)
