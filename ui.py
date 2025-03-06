@@ -241,6 +241,7 @@ def stop_recording(event=None):
     stop_button.config(state=tk.DISABLED)
     transcribe_button.config(state=tk.NORMAL)
     rename_audio_button.config(state=tk.NORMAL)
+    analyze_button.config(state=tk.NORMAL)
     logging.info("Stop recording button clicked")
 
 
