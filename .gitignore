@@ -13,6 +13,7 @@ text_analysis.txt
 output_transcription_confidence.txt
 batch_transcription.txt
 annotated_transcription_7fcec539.txt
+output_transcription_Tamil.txt
 
 # Ignore virtual environment directories (if applicable)
 venv/
