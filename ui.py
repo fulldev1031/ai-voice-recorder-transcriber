@@ -1,4 +1,8 @@
+import threading
+from tkinter import messagebox
 import warnings
+
+import torch
 
 from app.core.recorder import AudioRecorder
 from app.gui.components.waveform import WaveformVisualizer
@@ -31,6 +35,7 @@ from app.gui.layout.window import open_annotation_window
 from app.gui.components.setup import setup_tkdnd
 import logging
 import warnings
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import os
 from tkinterdnd2 import TkinterDnD
 import matplotlib
